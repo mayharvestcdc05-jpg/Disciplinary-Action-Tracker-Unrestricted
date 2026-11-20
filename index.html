@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Disciplinary Action Tracker</title>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--tx:#1b2230;--mut:#667085;--bd:#d8dde6;--ac:#1f5fbf;--acx:#fff;--bad:#b42318;--ok:#13734a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#12161d;--card:#1b212b;--tx:#e8ebf1;--mut:#9aa3b2;--bd:#2d3542;--ac:#6ea2f5;--acx:#0d1320;--bad:#f97066;--ok:#4cc38a}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#12161d;--card:#1b212b;--tx:#e8ebf1;--mut:#9aa3b2;--bd:#2d3542;--ac:#6ea2f5;--acx:#0d1320;--bad:#f97066;--ok:#4cc38a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 18px;border-bottom:1px solid var(--bd);background:var(--card);display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:18px;margin:0}h2{font-size:16px;margin:0 0 10px}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--mut)}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+nav button{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit}
+nav button.on{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.full{grid-column:1/-1}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:80px}
+button.b{background:var(--ac);color:var(--acx);border:0;border-radius:6px;padding:8px 14px;cursor:pointer;font:inherit}
+button.s{background:transparent;color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:10px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--bd);vertical-align:top}th{color:var(--mut);font-weight:600;white-space:nowrap}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid var(--bd)}
+.bad{color:var(--bad);border-color:var(--bad)}.ok{color:var(--ok);border-color:var(--ok)}
+.mut{color:var(--mut);font-size:13px}.pre{white-space:pre-wrap}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:50}
+#docwrap{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;overflow:auto;z-index:20;padding:12px}
+#docbar{max-width:800px;margin:0 auto 8px;display:flex;gap:8px;justify-content:flex-end;padding-top:env(safe-area-inset-top,0px)}
+#doc{max-width:800px;margin:0 auto;background:#fff;color:#000;padding:26px 36px;font:14px/1.4 "Times New Roman",serif}#doc p{margin:5px 0}
+#doc h3{text-align:center;margin:0 0 4px;font-size:18px;text-transform:uppercase}
+#doc .sub{text-align:center;margin-bottom:10px}#doc table{margin:10px 0}#doc td,#doc th{border:1px solid #000;color:#000;font-size:14px;padding:6px;text-align:left;vertical-align:top}#doc th{width:38%;background:#eee}
+#doc .sig{display:flex;gap:30px;margin-top:36px}#doc .sig div{flex:1;border-top:1px solid #000;padding-top:4px;font-size:13px}
+#doc .sgs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:14px;font-size:12px}#doc .g4{grid-template-columns:repeat(2,1fr)}#doc .g4>div{margin-bottom:4px}#doc .sgs>div{padding:0 14px;text-align:center}#doc .sgs .rl{font-weight:bold;margin-bottom:22px}#doc .sgs .sl{border-top:1px solid #000}#doc .sgs .pt{margin-top:5px;display:flex;align-items:flex-end;gap:6px;white-space:nowrap}#doc .sgs .pl{flex:1;border-bottom:1px solid #000;height:12px}
+@page{margin:12mm}@media print{body>*:not(#docwrap){display:none!important}#docwrap{position:static;background:none;padding:0;overflow:visible}#docbar{display:none}#doc{padding:0;max-width:none}}
+</style></head><body>
+<header><div><h1>Disciplinary Action Tracker</h1><div class="mut" id="hdc" style="font-size:12px"></div></div>
+<div class="bar" id="who"></div></header>
+<main><nav id="nav"></nav><div id="view"></div>
+<p class="mut">Records and passwords are saved in this browser only, so this login is a convenience, not real security. Letter templates follow the Philippine two-notice rule (notice to explain, then notice of decision); have HR/counsel confirm them against your approved format.</p></main>
+<div id="docwrap"><div id="docbar"><button class="b" data-act="print">Print</button><button class="s" style="background:var(--card)" data-act="savedoc">Save as HTML</button><button class="s" style="background:var(--card)" data-act="close">Close</button></div><div id="doc"></div></div>
+<div id="login" style="position:fixed;inset:0;background:var(--bg);z-index:40;overflow:auto;padding:20px"><div class="card" id="lg" style="max-width:380px;margin:8vh auto"></div></div>
+<div id="edwrap" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;overflow:auto;z-index:30;padding:12px"><div class="card" id="ed" style="max-width:760px;margin:20px auto"></div></div>
+<div id="toast"></div>
+<script>
+const MAP={MHC:"May Harvest Corporation",Workbridge:"Workbridge Corporation",Multi:"Multicareer Manpower Services","Top Jinzai":"Top Jinzai Company, Inc.",BLGM:"BLGM Manpower Services",Omnichron:"Omnichron Security Agency, Inc"};
+const AG=Object.values(MAP);
+const DEPTS=["Basic","Further","Blast","CCM","Warehouse","BLGM","E&M","PLI","Scaler","Dry warehouse","PFRP","24 Chicken","Utility","Canteen","Admin"];
+const ACC=[{id:"adminhead",name:"Admin Head",role:"admin"},{id:"prod",name:"Production Head",role:"head"},{id:"wh",name:"Warehouse Head",role:"head"},{id:"qa",name:"Quality Head",role:"head"},{id:"eng",name:"Engineering Head",role:"head"},{id:"ops",name:"Operations Manager",role:"head"},{id:"hr1",name:"HR 1",role:"admin"},{id:"hr2",name:"HR 2",role:"admin"},{id:"dco",name:"Document Control Officer",role:"dco"},{id:"wb",name:"Workbridge",role:"agency",agency:"Workbridge"},{id:"multi",name:"Multi",role:"agency",agency:"Multi"},{id:"tj",name:"Top Jinzai",role:"agency",agency:"Top Jinzai"},{id:"blgm",name:"BLGM",role:"agency",agency:"BLGM"},{id:"omni",name:"Omnichron",role:"agency",agency:"Omnichron"}];
+ACC.forEach(a=>{if(a.agency){a.agency=MAP[a.agency]||a.agency;a.name=a.agency}});
+const PERM={admin:["A","B","C","D","G"],agency:["A","B","D","G"],head:["A","D","G"],dco:[]};
+let user=null,AC={},lgId="adminhead",lgMsg="";
+try{AC=JSON.parse(localStorage.getItem("dat_ac")||"{}")}catch(e){}
+function saveAc(){try{localStorage.setItem("dat_ac",JSON.stringify(AC))}catch(e){}}
+async function hp(id,pw){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dat:"+id+":"+pw));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return btoa(unescape(encodeURIComponent("dat:"+id+":"+pw)))}}
+function showLogin(){$("#login").style.display="block";const first=!AC[lgId];
+$("#lg").innerHTML=`<h2>Disciplinary Action Tracker</h2><form data-f="LG"><label>Account</label><select name="id" id="lgid">${ACC.map(x=>`<option value="${x.id}"${x.id===lgId?" selected":""}>${esc(x.name)}</option>`).join("")}</select>`+(first&&lgId!=="adminhead"?`<p class="mut">No password has been set for this account yet. Ask the Admin Head to set one.</p>`:`<label style="margin-top:10px">${first?"Create password (min. 6 characters)":"Password"}</label><input type="password" name="pw" required autocomplete="off">${first?'<label style="margin-top:10px">Confirm password</label><input type="password" name="pw2" required autocomplete="off">':""}<div class="row"><span class="mut" style="color:var(--bad)">${esc(lgMsg)}</span><button class="b">${first?"Set password and log in":"Log in"}</button></div>`)+`</form>`}
+async function doLogin(o){const a=ACC.find(x=>x.id===o.id);lgId=a.id;
+if(!AC[a.id]){if(a.id!=="adminhead")return;if(o.pw.length<6){lgMsg="Use at least 6 characters.";return showLogin()}if(o.pw!==o.pw2){lgMsg="Passwords do not match.";return showLogin()}AC[a.id]=await hp(a.id,o.pw);saveAc()}
+else if(AC[a.id]!==await hp(a.id,o.pw)){lgMsg="Incorrect password.";return showLogin()}
+user=a;role=a.role;ag=a.agency||AG[0];lgMsg="";tab="A";$("#login").style.display="none";$("#who").innerHTML=`${esc(a.name)} <button class="s" data-act="logout">Log out</button>`;render()}
+function logout(){user=null;$("#view").innerHTML="";$("#nav").innerHTML="";$("#who").innerHTML="";$("#edwrap").style.display="none";$("#docwrap").style.display="none";showLogin()}
+async function setPw(id){const v=$("#pw_"+id).value;if(v.length<6){toast("Use at least 6 characters");return}AC[id]=await hp(id,v);saveAc();toast("Password set");render()}
+function fillBy(s){s=s||"#view";document.querySelectorAll(s+' input[name="by"],'+s+' input[name="eby"]').forEach(i=>{if(!i.value)i.value=user.name})}
+function adminOnly(){return true}
+function okTyped(){const c=$("#rstc");if(!c||c.value.trim()!=="RESET"){toast("Type RESET to confirm");return false}return true}
+function delSel(){if(!adminOnly()||!okTyped())return;const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);if(!ids.length){toast("Select records first");return}D=D.filter(r=>!ids.includes(r.id));save();toast(ids.length+" record(s) deleted");render()}
+function delAll(){if(!adminOnly()||!okTyped())return;D=[];save();toast("All records deleted");render()}
+function rstPw(id){if(!adminOnly())return;delete AC[id];saveAc();toast("Password reset");render()}
+function rstAllPw(){if(!adminOnly()||!okTyped())return;ACC.forEach(a=>{if(a.id!=="adminhead")delete AC[a.id]});saveAc();toast("Passwords reset");render()}
+let dAg="";
+function cnt(rs){const s=r=>status(r),n=f=>rs.filter(f).length;return{t:rs.length,p:n(r=>!r.rev),mi:n(r=>lvl(r)==="Minor"),ma:n(r=>lvl(r)==="Major"),cr:n(r=>lvl(r)==="Critical"),cl:n(r=>lvl(r)==="Commitment"),aw:n(r=>s(r)==="Showcause issued - awaiting explanation"),ov:n(r=>/overdue/.test(s(r))),cd:n(r=>!!r.fin)}}
+function viewG(){const v=vis(),A=role==="agency"?[ag]:AG,tot=cnt(v),rows=A.map(a=>[a,cnt(v.filter(r=>r.agency===a))]),mx=Math.max(1,...rows.map(x=>x[1].t));
+const sel=role==="agency"?ag:dAg,dc=DEPTS.map(d=>[d,cnt(v.filter(r=>(!sel||r.agency===sel)&&r.dept===d))]).filter(x=>x[1].t);
+const k=(l,n,bad)=>`<div class="card" style="margin:0"><div class="mut">${l}</div><div style="font-size:26px;font-weight:600${bad&&n?";color:var(--bad)":""}">${n}</div></div>`;
+const th="<tr><th>#</th><th>Notices</th><th>Pending review</th><th>Minor</th><th>Major</th><th>Critical</th><th>Commitment</th><th>Awaiting expl.</th><th>Overdue</th><th>Closed (DAR)</th></tr>";
+const tr=(l,c,b)=>`<tr${b?' style="font-weight:600"':""}><td>${esc(l)}</td><td>${c.t}</td><td>${c.p}</td><td>${c.mi}</td><td>${c.ma}</td><td>${c.cr}</td><td>${c.cl}</td><td>${c.aw}</td><td${c.ov?' style="color:var(--bad)"':""}>${c.ov}</td><td>${c.cd}</td></tr>`;
+return`<div class="grid" style="margin-bottom:12px">${k("Total notices",tot.t)}${k("Pending review",tot.p)}${k("Awaiting explanation",tot.aw)}${k("Overdue",tot.ov,1)}${k("Closed (DAR)",tot.cd)}</div>
+<div class="card"><h2>Dashboard per agency</h2><div class="tw"><table>${th.replace("#","Agency")}${rows.map(x=>tr(x[0],x[1])).join("")}${role==="agency"?"":tr("Total",tot,1)}</table></div></div>
+<div class="card"><h2>Notices per agency</h2>${rows.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><span style="width:200px">${esc(x[0])}</span><div style="flex:1;background:var(--bg);border-radius:4px"><div style="width:${x[1].t/mx*100}%;background:var(--ac);height:14px;border-radius:4px"></div></div><b>${x[1].t}</b></div>`).join("")}</div>
+<div class="card"><h2>By department</h2><div class="grid" style="margin-bottom:8px"><div><label>Agency</label><select id="dag"${role==="agency"?" disabled":""}><option value="">All agencies</option>${AG.map(a=>`<option${a===sel?" selected":""}>${a}</option>`).join("")}</select></div></div><div class="tw"><table>${th.replace("#","Department")}${dc.map(x=>tr(x[0],x[1])).join("")||'<tr><td colspan="10" class="mut">No records.</td></tr>'}</table></div></div>`}
+let DC={},DCL=[];try{const x=JSON.parse(localStorage.getItem("dat_dc")||"{}");DC=x.DC||{};DCL=x.DCL||[]}catch(e){}
+const dcLine=k=>{const c=DC[k]||{};return`<p class="mut" style="margin:-4px 0 10px">Document Code: <b>${esc(c.code||"-")}</b> &middot; Rev. No.: <b>${esc(c.rev||"-")}</b> &middot; Effective Date: <b>${c.eff?fd(c.eff):"-"}</b></p>`};
+const fname=(c,title,cov,ext)=>[c.code||"NOCODE",title,cov].join("_").replace(/[^\w .\-]+/g,"").trim()+ext;
+const ymd=d=>String(d||"").replace(/-/g,"");
+function hdr(){const c=DC.tracker||{};$("#hdc").innerHTML="Doc. Code: <b>"+esc(c.code||"-")+"</b> &middot; Rev. No.: <b>"+esc(c.rev||"-")+"</b> &middot; Effectivity: <b>"+(c.eff?fd(c.eff):"-")+"</b>"}
+const DOCS=[["tracker","Disciplinary Action Tracker"],["noa","Notice of Attention (Application Form)"],["sc","Notice to Explain / Show Cause Letter"],["dar","Disciplinary Action Report (DAR)"],["cl","Commitment Letter"]];
+function saveDC(k,o,now){if(!user){return}
+const old=DC[k]||{},n={code:o.code.trim(),rev:o.rev.trim(),eff:o.eff},ch=diff(old,n,{code:"Document Code",rev:"Revision No.",eff:"Effective Date"});
+if(!ch.length){toast("No changes made");return}
+DC[k]=n;DCL.push({at:now,by:o.eby.trim(),doc:DOCS.find(d=>d[0]===k)[1],ch,why:o.why.trim()});try{localStorage.setItem("dat_dc",JSON.stringify({DC,DCL}))}catch(e){}toast("Saved and logged");render()}
+function viewH(){return`<div class="card"><h2>Document Control</h2><p class="mut">Controlled-document details for FSSC 22000 documented information. The code, revision number and effective date print in the header of each letter, and every change is logged below. Only the Document Control Officer and Admin Head can edit this.</p></div>`+DOCS.map(d=>{const c=DC[d[0]]||{},l=DCL.filter(x=>x.doc===d[1]).pop();return`<div class="card"><h2>${esc(d[1])}</h2><form data-f="DC" data-k="${d[0]}"><div class="grid"><div><label>Document Code *</label><input name="code" required value="${esc(c.code)}" placeholder="e.g. HR-F-012"></div><div><label>Revision No. *</label><input name="rev" required value="${esc(c.rev)}" placeholder="e.g. 01"></div><div><label>Effective Date *</label><input type="date" name="eff" required value="${esc(c.eff)}"></div><div><label>Updated by *</label><input name="eby" required></div><div class="full"><label>Reason / description of change *</label><input name="why" required placeholder="e.g. Initial issue"></div></div><div class="row"><span class="mut">${l?"Last updated by "+esc(l.by)+", "+fmt(l.at):"Not yet issued"}</span><button class="b">Save</button></div></form></div>`}).join("")+`<div class="card"><h2>Revision history</h2>${DCL.length?`<div class="tw"><table><tr><th>When</th><th>Document</th><th>Updated by</th><th>Changes (old &rarr; new)</th><th>Reason</th></tr>${DCL.slice().reverse().map(l=>`<tr><td>${fmt(l.at)}</td><td>${esc(l.doc)}</td><td>${esc(l.by)}</td><td>${l.ch.map(c=>`<b>${esc(c.f)}:</b> ${esc(c.a||"(blank)")} &rarr; ${esc(c.b||"(blank)")}`).join("<br>")}</td><td>${esc(l.why)}</td></tr>`).join("")}</table></div>`:'<p class="mut">No revisions recorded yet.</p>'}</div>`}
+function viewE(){return`<div class="card"><h2>Accounts</h2><p class="mut">Set or reset each account's password and share it with the user. Accounts cannot log in until a password is set.</p><div class="tw"><table><tr><th>Account</th><th>Access</th><th>Password</th><th>Set new password</th></tr>${ACC.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.role==="admin"?"Admin (all records)":a.role==="agency"?"Agency: own records only":a.role==="dco"?"Document control only":"Dept head (file notices, view status)"}</td><td>${AC[a.id]?"Set":"Not set"}${AC[a.id]?` <button class="s" data-act="rstpw" data-id="${a.id}">Reset</button>`:""}</td><td><input type="text" id="pw_${a.id}" placeholder="min. 6 characters" style="width:150px"> <button class="s" data-act="setpw" data-id="${a.id}">Set</button></td></tr>`).join("")}</table></div></div>
+<div class="card"><h2>Delete records</h2><p class="mut">Admin Head only. Deleted records cannot be recovered, so use Export file on tabs A to D first. Tick records for "Delete selected".</p><div class="tw"><table><tr><th></th><th>Ref</th><th>Employee</th><th>Agency</th><th>Status</th></tr>${D.map(r=>`<tr><td><input type="checkbox" class="dsel" value="${r.id}" style="width:auto"></td><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${esc(status(r))}</td></tr>`).join("")||'<tr><td colspan="5" class="mut">No records.</td></tr>'}</table></div><div class="grid" style="margin-top:10px"><div><label>Type RESET to confirm</label><input id="rstc" autocomplete="off"></div></div><div class="row"><span><button class="s" data-act="delsel">Delete selected</button> <button class="s" data-act="delall">Delete all records</button> <button class="s" data-act="rstall">Reset all passwords (except Admin Head)</button></span></div></div>`}
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let mem=null;
+function load(){try{return JSON.parse(localStorage.getItem("dat1")||"[]")}catch(e){return mem||[]}}
+let D=load(),role="admin",ag=AG[0],tab="A",fStatus="",fQ="";
+D.forEach(r=>{if(MAP[r.agency])r.agency=MAP[r.agency]});
+function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}}
+const fmt=i=>i?new Date(i).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"";
+const fd=d=>d?new Date(d+"T00:00").toLocaleDateString("en-PH",{dateStyle:"long"}):"";
+const nm=r=>r.sur+", "+r.first+(r.mi?" "+r.mi+".":"");
+const vis=()=>role==="agency"?D.filter(r=>r.agency===ag):D;
+const lvl=r=>r.rev?r.rev.cat:"";
+const isMC=r=>r.rev&&(r.rev.cat==="Major"||r.rev.cat==="Critical");
+function due(r){if(!isMC(r))return null;const d=new Date(r.rev.at);d.setDate(d.getDate()+ +r.rev.days);return d}
+function status(r){if(!r.rev)return"Pending agency review";const c=r.rev.cat;if(c==="Minor")return"DAR issued (minor)";if(c==="Commitment")return"Commitment letter issued";if(r.fin)return"Closed - DAR issued";return new Date()>due(r)?"Showcause - explanation overdue":"Showcause issued - awaiting explanation"}
+function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";setTimeout(()=>e.style.display="none",2800)}
+const NTH=["1st","2nd","3rd","4th","5th"];
+const nthOpts=n=>NTH.slice(0,n).map(x=>`<option>${x}</option>`).join("");
+const MIN=["1st Written Reprimand and Verbal Counselling","2nd Written Reprimand","3rd Written Reprimand and 3 days suspension","4th Written Reprimand and 6 days suspension","5th For Transfer"];
+const MAJ=["1st Written Reprimand and Verbal Counselling","1st Written Reprimand and 3 days suspension","1st Written Reprimand and preventive suspension","2nd Written Reprimand and 3 days suspension","2nd Written Reprimand and 6 days suspension","2nd For Transfer","3rd Written Reprimand and 3 days suspension","3rd Written Reprimand and 6 days suspension","3rd For Transfer"];
+const actOpts=a=>a.map(x=>`<option>${x}</option>`).join("");
+const agOpts=sel=>AG.map(a=>`<option${a===sel?" selected":""}>${a}</option>`).join("");
+const info=r=>`<b>${esc(r.ref)}</b> &middot; ${esc(nm(r))} &middot; ${esc(r.agency)} / ${esc(r.dept)}<div class="mut">Incident ${fd(r.doi)} ${esc(r.toi)} &middot; Reported by ${esc(r.by)} on ${fmt(r.at)}</div><div class="pre" style="margin-top:4px">${esc(r.concern)}</div>`;
+const tag=r=>{const s=status(r);return`<span class="tag ${/overdue/.test(s)?"bad":/Closed|issued \(|Commitment/.test(s)?"ok":""}">${esc(s)}</span>`};
+
+function viewA(){const v=vis();return`<div class="card"><h2>A. Notice of Attention</h2>${dcLine("noa")}
+<form data-f="A"><div class="grid">
+<div><label>Surname *</label><input name="sur" required></div><div><label>First name *</label><input name="first" required></div><div><label>M.I. (optional)</label><input name="mi" maxlength="3"></div>
+<div><label>Agency / Company *</label><select name="agency"${role==="agency"?" disabled":""}>${agOpts(role==="agency"?ag:"")}</select></div>
+<div><label>Department *</label><select name="dept" required><option value="">Select...</option>${DEPTS.map(d=>`<option>${d}</option>`).join("")}</select></div><div><label>Reported by *</label><input name="by" required></div>
+<div><label>Date of incident *</label><input type="date" name="doi" required></div><div><label>Time of incident *</label><input type="time" name="toi" required></div>
+<div><label>Reported date/time</label><input value="Automatic on submit" disabled></div>
+<div class="full"><label>Concern *</label><textarea name="concern" required></textarea></div></div>
+<div class="row"><span class="mut">Total notices: ${v.length}</span><span><button type="button" class="s" data-act="csv">Export file (CSV)</button> <button class="b">Submit</button></span></div></form></div>
+<div class="card"><h2>Recent notices</h2>${v.length?v.slice().reverse().slice(0,8).map(r=>`<div style="padding:8px 0;border-top:1px solid var(--bd)">${info(r)}</div>`).join(""):'<p class="mut">None yet.</p>'}</div>`}
+
+function viewB(){const v=vis(),p=v.filter(r=>!r.rev),d=v.filter(r=>r.rev);
+return`<div class="card"><h2>B. Agency review</h2><p class="mut">Pending review: ${p.length}. Minor: DAR. Major/Critical: Showcause letter with explanation period. Or Commitment Letter.</p>
+${p.map(r=>`<div style="padding:10px 0;border-top:1px solid var(--bd)">${info(r)}<form data-f="B" data-id="${r.id}"><div class="grid" style="margin-top:8px">
+<div><label>Classification *</label><select name="cat"><option value="Minor">1. Minor offense (DAR)</option><option value="Major">2. Major offense (Showcause)</option><option value="Critical">2. Critical offense (Showcause)</option><option value="Commitment">3. Commitment letter</option></select></div>
+<div><label>Offense / violation * (e.g. attendance)</label><input name="offense" required></div>
+<div><label>Explanation within (Major/Critical)</label><select name="days"><option value="3">3 days</option><option value="5">5 days</option></select></div>
+<div><label>Reviewed by *</label><input name="by" required></div><div class="mn"><label>Offense no. (Minor)</label><select name="nth">${nthOpts(5)}</select></div><div class="mn full"><label>Action / Recommendation (Minor)</label><select name="act">${actOpts(MIN)}</select></div><div class="mn full"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,MIN[1])}</select></div></div>
+<div class="row"><span class="mut">Review date/time is automatic</span><button class="b">Submit review</button></div></form></div>`).join("")||'<p class="mut">Nothing pending.</p>'}</div>
+<div class="card"><div class="row" style="margin:0 0 8px"><h2 style="margin:0">Reviewed</h2><button class="s" data-act="csv">Export file (CSV)</button></div><div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Level</th><th>Reviewed by</th><th>Reviewed</th><th>Letter</th></tr>
+${d.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.rev.cat)}</td><td>${esc(r.rev.by)}</td><td>${fmt(r.rev.at)}</td><td>${docBtns(r)} ${edBtns(r,"B")}</td></tr>`).join("")}</table></div></div>`}
+
+function docBtns(r){const c=r.rev&&r.rev.cat;if(!c)return"";if(c==="Minor")return`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`;if(c==="Commitment")return`<button class="s" data-act="doc" data-t="cl" data-id="${r.id}">Letter</button>`;return`<button class="s" data-act="doc" data-t="sc" data-id="${r.id}">Showcause</button> `+(r.fin?`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`:"")}
+
+function viewC(){const v=vis().filter(isMC),o=v.filter(r=>!r.fin),c=v.filter(r=>r.fin);
+return`<div class="card"><h2>C. Review of Major and Critical offenses</h2>
+${o.map(r=>{const dd=due(r);return`<div style="padding:10px 0;border-top:1px solid var(--bd)">${info(r)}<div class="mut">${esc(r.rev.cat)} offense: ${esc(r.rev.offense)} &middot; Explanation due ${dd.toLocaleDateString("en-PH",{dateStyle:"medium"})}</div>
+<form data-f="C" data-id="${r.id}"><div class="grid" style="margin-top:8px">
+<div class="full"><label>Violation *</label><input name="viol" required value="${esc(r.rev.offense)}"></div>
+<div class="full"><label>Employee explanation * (enter "No explanation submitted" if none)</label><textarea name="expl" required></textarea></div>
+<div><label>Date explanation received</label><input type="date" name="edate"></div>
+<div><label>Offense no. *</label><select name="nth">${nthOpts(3)}</select></div>
+<div class="full"><label>Action / Recommendation *</label><select name="rec">${actOpts(MAJ)}</select></div><div class="full"><label>When Repeated - Action / Recommendation</label><select name="rep"><option value="">-</option>${selO(MAJ,MAJ[3])}</select></div>
+<div><label>Remarks (optional)</label><input name="recd"></div><div><label>Decided by *</label><input name="by" required></div></div>
+<div class="row"><span class="mut">Generates DAR</span><button class="b">Submit and generate DAR</button></div></form></div>`}).join("")||'<p class="mut">No open major/critical cases.</p>'}</div>
+<div class="card"><div class="row" style="margin:0 0 8px"><h2 style="margin:0">Closed</h2><button class="s" data-act="csv">Export file (CSV)</button></div><div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Violation</th><th>Recommendation</th><th>DAR</th></tr>
+${c.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.fin.viol)}</td><td>${esc(r.fin.nth)} offense: ${esc(r.fin.rec)}${r.fin.recd?" ("+esc(r.fin.recd)+")":""}</td><td><button class="s" data-act="doc" data-t="dar" data-id="${r.id}">Print DAR</button> ${edBtns(r,"C")}</td></tr>`).join("")}</table></div></div>`}
+
+function viewD(){const st=["Pending agency review","DAR issued (minor)","Commitment letter issued","Showcause issued - awaiting explanation","Showcause - explanation overdue","Closed - DAR issued"];
+const v=vis().filter(r=>(!fStatus||status(r)===fStatus)&&(!fQ||(nm(r)+r.ref+r.agency).toLowerCase().includes(fQ.toLowerCase())));
+return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div class="grid"><div><label>Status</label><select id="fs"><option value="">All</option>${st.map(s=>`<option${s===fStatus?" selected":""}>${s}</option>`).join("")}</select></div><div><label>Search</label><input id="fq" value="${esc(fQ)}" placeholder="Name, ref, agency"></div></div>
+<div class="row"><span class="mut">${v.length} record(s)</span><button class="s" data-act="csv">Export file (CSV)</button></div>
+<div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Agency</th><th>Incident</th><th>Level</th><th>Explanation due</th><th>Status</th><th>Docs</th></tr>
+${v.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${fd(r.doi)}</td><td>${esc(lvl(r))||"-"}</td><td>${isMC(r)?due(r).toLocaleDateString("en-PH",{dateStyle:"medium"}):"-"}</td><td>${tag(r)}</td><td>${docBtns(r)}</td></tr>`).join("")}</table></div></div>`}
+
+function render(){if(!user)return;const T=["A","B","C","D","G","E","H"];if(!T.includes(tab))tab=T[0];const N={A:"A. Notice of Attention",B:"B. Agency Review",C:"C. Major/Critical",D:"D. Status",E:"Accounts",G:"Dashboard",H:"Document Control"};
+$("#nav").innerHTML=T.map(t=>`<button class="${tab===t?"on":""}" data-tab="${t}">${N[t]}</button>`).join("");
+$("#view").innerHTML={A:viewA,B:viewB,C:viewC,D:viewD,E:viewE,G:viewG,H:viewH}[tab]();fillBy();hdr()}
+
+const COLS=["Ref","Surname","First name","MI","Agency","Department","Incident date","Incident time","Concern","Reported by","Reported at","Level","Offense","Showcause days","Reviewed by","Reviewed at","Employee explanation","Recommendation","Decided by","Status","When repeated","Created by (account)","Last edited by (account)","Last edited at"];
+const lastEd=r=>(r.log&&r.log.length)?r.log[r.log.length-1]:{};
+const rowOf=r=>[r.ref,r.sur,r.first,r.mi,r.agency,r.dept,r.doi,r.toi,r.concern,r.by,r.at,lvl(r),r.rev&&r.rev.offense,isMC(r)?r.rev.days:"",r.rev&&r.rev.by,r.rev&&r.rev.at,r.fin&&r.fin.expl,r.fin?(r.fin.nth+" offense: "+r.fin.rec+(r.fin.recd?" ("+r.fin.recd+")":"")):(r.rev&&r.rev.act?r.rev.nth+" offense: "+r.rev.act:""),r.fin&&r.fin.by,status(r),(r.fin?r.fin.rep:r.rev&&r.rev.rep)||"",r.createdBy||"",lastEd(r).acct||"",lastEd(r).at||""];
+async function saveFile(fn,data){try{if(window.claude){const d=await claude.use("downloads");if(d){await d.save({filename:fn,data});return}}}catch(e){}
+try{await navigator.clipboard.writeText(data);toast("Download unavailable here - copied to clipboard")}catch(e){toast("Export unavailable in this view")}}
+function exportCSV(){const n={A:12,B:18,C:21,D:21}[tab];let rows=vis();if(tab==="B")rows=rows.filter(r=>r.rev);if(tab==="C")rows=rows.filter(isMC);
+const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+const ks={A:["noa"],B:["tracker","sc","dar","cl"],C:["tracker","dar"],D:["tracker","noa"]}[tab],meta=[["Document","Document Code","Revision No.","Effective Date"]].concat(ks.map(k=>{const c=DC[k]||{};return[DOCS.find(d=>d[0]===k)[1],c.code||"",c.rev||"",c.eff||""]})).concat([[]]);
+const ds=rows.map(r=>r.doi).filter(Boolean).sort(),cov=ds.length?(ds[0]===ds[ds.length-1]?ymd(ds[0]):ymd(ds[0])+"-"+ymd(ds[ds.length-1])):ymd(new Date().toISOString().slice(0,10));
+saveFile(fname(DC[ks[0]]||{},ks[0]==="noa"?"Notice of Attention":"Disciplinary Action Tracker - "+{B:"Agency Review",C:"Major and Critical Review",D:"Status"}[tab],cov,".csv"),"\ufeff"+meta.concat([COLS.slice(0,n).concat(COLS.slice(21))],rows.map(r=>rowOf(r).slice(0,n).concat(rowOf(r).slice(21)))).map(a=>a.map(q).join(",")).join("\n"))}
+
+const edBtns=(r,k)=>`<button class="s" data-act="edit" data-k="${k}" data-id="${r.id}">Edit</button>`+(r.log&&r.log.length?` <button class="s" data-act="edit" data-k="H" data-id="${r.id}">History (${r.log.length})</button>`:"");
+const selO=(l,v)=>l.map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("");
+function diff(a,b,lab){return Object.keys(lab).filter(k=>String(a[k]||"")!==String(b[k]||"")).map(k=>({f:lab[k],a:a[k]||"",b:b[k]||""}))}
+function saveEdit(k,o,r,now){let ch,sec;
+if(k==="EB"){const v=r.rev,mc=o.cat==="Major"||o.cat==="Critical",n={cat:o.cat,offense:o.offense.trim(),days:mc?o.days:v.days,nth:o.cat==="Minor"?o.nth:"",act:o.cat==="Minor"?o.act:"",rep:o.cat==="Minor"?o.rep:""};
+ch=diff(v,n,{cat:"Classification",offense:"Offense",days:"Explanation days",nth:"Offense no.",act:"Action/Recommendation",rep:"When Repeated"});if(ch.length)Object.assign(v,n);sec="Agency review (B)"}
+else{const v=r.fin,n={viol:o.viol.trim(),expl:o.expl.trim(),edate:o.edate,nth:o.nth,rec:o.rec,rep:o.rep,recd:o.recd.trim()};
+ch=diff(v,n,{viol:"Violation",expl:"Explanation",edate:"Explanation date",nth:"Offense no.",rec:"Action/Recommendation",rep:"When Repeated",recd:"Remarks"});if(ch.length)Object.assign(v,n);sec="Major/Critical review (C)"}
+if(!ch.length){toast("No changes made");return}
+(r.log=r.log||[]).push({at:now,acct:user.name,by:o.eby.trim(),sec,ch,why:o.why.trim()});save();$("#edwrap").style.display="none";toast("Changes saved and logged");render()}
+function openEdit(id,k){const r=D.find(x=>x.id===id);let h="";
+const foot=`<div class="grid" style="margin-top:10px"><div><label>Edited by *</label><input name="eby" required></div><div><label>Reason for change *</label><input name="why" required></div></div><div class="row"><button type="button" class="s" data-act="edclose">Cancel</button><button class="b">Save changes</button></div></form>`;
+if(k==="H"){h=`<h2>Edit history - ${esc(r.ref)}</h2>`+((r.log||[]).length?`<div class="tw"><table><tr><th>When</th><th>Edited by</th><th>Section</th><th>Changes (old &rarr; new)</th><th>Reason</th></tr>${r.log.slice().reverse().map(l=>`<tr><td>${fmt(l.at)}</td><td>${esc(l.by)}</td><td>${esc(l.sec)}</td><td>${l.ch.map(c=>`<b>${esc(c.f)}:</b> ${esc(c.a||"(blank)")} &rarr; ${esc(c.b||"(blank)")}`).join("<br>")}</td><td>${esc(l.why)}</td></tr>`).join("")}</table></div>`:'<p class="mut">No edits yet.</p>')+`<div class="row"><span class="mut">Original review: ${esc(r.rev.by)}, ${fmt(r.rev.at)}</span><button class="s" data-act="edclose">Close</button></div>`}
+else if(k==="B"){const v=r.rev,m=v.cat==="Minor"?"":"display:none";h=`<h2>Edit review - ${esc(r.ref)} ${esc(nm(r))}</h2><form data-f="EB" data-id="${id}"><div class="grid"><div><label>Classification</label><select name="cat">${selO(["Minor","Major","Critical","Commitment"],v.cat)}</select></div><div><label>Offense / violation</label><input name="offense" required value="${esc(v.offense)}"></div><div><label>Explanation within (Major/Critical)</label><select name="days"><option value="3"${v.days==="3"?" selected":""}>3 days</option><option value="5"${v.days==="5"?" selected":""}>5 days</option></select></div><div class="mn" style="${m}"><label>Offense no. (Minor)</label><select name="nth">${selO(NTH,v.nth||"1st")}</select></div><div class="mn full" style="${m}"><label>Action / Recommendation (Minor)</label><select name="act">${selO(MIN,v.act||MIN[0])}</select></div><div class="mn full" style="${m}"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,v.rep||"")}</select></div></div>`+foot}
+else{const v=r.fin;h=`<h2>Edit Major/Critical review - ${esc(r.ref)} ${esc(nm(r))}</h2><form data-f="EC" data-id="${id}"><div class="grid"><div class="full"><label>Violation</label><input name="viol" required value="${esc(v.viol)}"></div><div class="full"><label>Employee explanation</label><textarea name="expl" required>${esc(v.expl)}</textarea></div><div><label>Date explanation received</label><input type="date" name="edate" value="${esc(v.edate)}"></div><div><label>Offense no.</label><select name="nth">${selO(NTH.slice(0,3),v.nth)}</select></div><div class="full"><label>Action / Recommendation</label><select name="rec">${selO(MAJ,v.rec)}</select></div><div class="full"><label>When Repeated - Action / Recommendation</label><select name="rep"><option value="">-</option>${selO(MAJ,v.rep||"")}</select></div><div class="full"><label>Remarks</label><input name="recd" value="${esc(v.recd)}"></div></div>`+foot}
+$("#ed").innerHTML=h;fillBy("#ed");$("#edwrap").style.display="block"}
+let curDoc="",curT="",curR="";
+function openDoc(r,t){const L="fil-PH",now=new Date().toLocaleDateString(L,{dateStyle:"long"}),co=esc(r.agency);
+const fd=d=>d?new Date(d+"T00:00").toLocaleDateString(L,{dateStyle:"long"}):"";
+const fmt=i=>i?new Date(i).toLocaleString(L,{dateStyle:"medium",timeStyle:"short"}):"";
+const CF={Minor:"Magaan",Major:"Mabigat",Critical:"Kritikal"};
+const sg=(L,c4)=>`<div class="sgs${c4?" g4":""}">${L.map(l=>`<div><div class="rl">${l[0]}</div><div class="sl"></div><div>${l[1]}</div><div class="pt">Petsa/Oras: <span class="pl"></span></div></div>`).join("")}</div>`;
+const tr=s=>String(s||"").replace("Written Reprimand","Nakasulat na Babala").replace("Verbal Counselling","Berbal na Pagpapayo").replace("preventive suspension","preventive na suspensyon").replace(/(\d+) days suspension/,"suspensyon na $1 araw").replace("For Transfer","Para sa Paglilipat").replace(" and "," at ").replace("1st","Una").replace("2nd","Ikalawa").replace("3rd","Ikatlo").replace("4th","Ikaapat").replace("5th","Ikalima").toLowerCase().replace(/^./,c=>c.toUpperCase());
+const dcx=DC[t]||{},ctl=`<table><tr><td><b>Document Code:</b> ${esc(dcx.code||"-")}</td><td><b>Rev. No.:</b> ${esc(dcx.rev||"-")}</td><td><b>Effective Date:</b> ${dcx.eff?fd(dcx.eff):"-"}</td></tr></table>`;
+const head=(ti,sub)=>ctl+`<h3>${co}</h3><div class="sub">${ti}<br>${sub||""}</div>`;
+const who=`<p>Ang mga sumusunod na gawain/kapabayaan ay paglabag sa alituntunin ng kompanya at napagkasunduan ng nakatataas na bigyan ng karampatang aksyon bilang pagdidisiplina sa empleyadong sangkot:</p><table><tr><th>Empleyado</th><td>${esc(nm(r))}</td></tr><tr><th>Ahensya / departamento</th><td>${co} / ${esc(r.dept)}</td></tr><tr><th>Petsa at oras ng insidente</th><td>${fd(r.doi)}, ${esc(r.toi)}</td></tr>`;
+let h="";
+if(t==="sc"){h=head("<b>ABISO UPANG MAGPALIWANAG (SHOW CAUSE)</b>","Unang nakasulat na abiso")+`<p>Petsa: ${fd(r.rev.at.slice(0,10))}<br>Para kay: <b>${esc(nm(r))}</b>, ${esc(r.dept)}<br>Reference: ${esc(r.ref)}</p><p>Nakarating sa aking tanggapan ang report tungkol sa iyo :</p><p><b>${esc(r.rev.offense)}</b></p><p class="pre">${esc(r.concern)}</p><p><small>Petsa at oras ng insidente: ${fd(r.doi)}, ${esc(r.toi)}</small></p><p>Di lingid sa iyong kaalaman na ang ganitong uri ng gawain/kapabayaan ay mahigpit na pinagbabawal ng ating kompanya sapagkat ito ay isang uri ng paglabag sa ating mga gabay at alituntunin ng empleyado at ito ay maaaring magresulta sa karampatang aksyon. Dahil dito, ikaw ay binibigyan ng <b>${r.rev.days}</b> araw mula sa pagtanggap mo ng sulat na ito, upang magbigay ng nakasulat na paliwanag tungkol sa nasabing gawain.</p><p>Ang hindi mo pagbibigay ng paliwanag sa loob ng nabanggit na panahon ay nangangahulugan na tinatalikuran mo ang pagkakataong ibinigay sa iyo upang madinig ang iyong panig.</p>${sg([["Tinanggap ni","Pangalan at Lagda ng Empleyado"],["Saksi","Pangalan at Lagda"],["Inihanda ni","Pangalan at Lagda"]])}`}
+else if(t==="cl"){h=head("<b>Liham ng Pangako (Commitment Letter)</b>")+`<p>Petsa: ${fd(r.rev.at.slice(0,10))}<br>Reference: ${esc(r.ref)}</p><p>Ako, si <b>${esc(nm(r))}</b>, ng ${esc(r.dept)}, ${co}, ay kumikilala sa sumusunod na usapin na iniulat noong ${fd(r.doi)}:</p><p class="pre">${esc(r.concern)}</p><p>Paglabag / usapin: <b>${esc(r.rev.offense)}</b>.</p><p>Ako ay nangangako na susunod sa mga patakaran at alituntunin ng kompanya at iiwasan ang pag-uulit ng usaping ito. Nauunawaan ko na ang pag-uulit ay maaaring magresulta sa karampatang aksyon alinsunod sa Code of Conduct at naaangkop na batas o pagkalipat sa ibang kliyente ng aking Agency.</p>${sg([["Lubos na gumagalang,","Pangalan at Lagda ng Empleyado"],["Saksi","Pangalan at Lagda"],["Tinanggap ng Office","Pangalan at Lagda"]])}`}
+else{const f=r.fin,minor=!f;h=head("<b>Ulat ng aksyong pandisiplina (DAR)</b>",minor?"Magaan na paglabag":"Pinal na abiso ng pasya (ikalawang abiso)")+who+`<tr><th>Nagawang paglabag</th><td>${esc(minor?r.rev.offense:f.viol)} (${CF[r.rev.cat]})</td></tr><tr><th>Detalye ng insidente</th><td class="pre">${esc(r.concern)}</td></tr>`+(minor?"":`<tr><th>Paliwanag ng empleyado</th><td class="pre">${esc(f.expl)}${f.edate?"<br>Natanggap: "+fd(f.edate):""}</td></tr>`)+`<tr><th>Karampatang aksyon</th><td>${minor?"Bilang ng paglabag: "+esc(tr(r.rev.nth))+"<br>Aksyon: "+esc(tr(r.rev.act)):"Bilang ng paglabag: "+esc(tr(f.nth))+"<br>Aksyon: "+esc(tr(f.rec))+(f.recd?"<br>Mga puna: "+esc(f.recd):"")}</td></tr><tr><th>Kung mauulit ang nagawang paglabag, ito ay mag-resulta sa</th><td>${esc(tr(minor?r.rev.rep:f.rep))||"&nbsp;"}</td></tr><tr><th>Sinuri ni / petsa</th><td>${esc(r.rev.by)}, ${fmt(r.rev.at)}</td></tr></table><p>Petsa ng pagpapalabas: ${now}. Reference: ${esc(r.ref)}</p>${sg([["Sumasang-ayon","Pangalan at lagda ng empleyado"],["Saksi","Pangalan at lagda"],["Inihanda ni","Pangalan at lagda"],["Pinagtibay ni","Agency authorized signatory"]],1)}`}
+curDoc=h;curT=t;curR=r.ref;$("#doc").innerHTML=h;$("#docwrap").style.display="block"}
+
+document.addEventListener("click",e=>{const b=e.target.closest("[data-tab],[data-act]");if(!b)return;
+if(b.dataset.tab){tab=b.dataset.tab;render();return}
+const a=b.dataset.act;if(a==="csv")exportCSV();
+else if(a==="edit")openEdit(b.dataset.id,b.dataset.k);
+else if(a==="edclose")$("#edwrap").style.display="none";
+else if(a==="setpw")setPw(b.dataset.id);
+else if(a==="logout")logout();
+else if(a==="delsel")delSel();
+else if(a==="delall")delAll();
+else if(a==="rstpw")rstPw(b.dataset.id);
+else if(a==="rstall")rstAllPw();
+else if(a==="doc")openDoc(D.find(r=>r.id===b.dataset.id),b.dataset.t);
+else if(a==="close")$("#docwrap").style.display="none";
+else if(a==="print"){try{window.print()}catch(x){toast("Print blocked - use Save as HTML")}}
+else if(a==="savedoc")saveFile(fname(DC[curT]||{},DOCS.find(d=>d[0]===curT)[1],ymd((D.find(x=>x.ref===curR)||{}).doi),".html"),'<!DOCTYPE html><meta charset="utf-8"><body style="font:14px/1.5 Times New Roman,serif;max-width:800px;margin:30px auto">'+curDoc+"<style>h3,.sub{text-align:center}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:6px;text-align:left;vertical-align:top}th{width:38%;background:#eee}.sig{display:flex;gap:30px;margin-top:36px}.sig div{flex:1;border-top:1px solid #000}p{margin:5px 0}.sgs{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px}.g4{grid-template-columns:repeat(2,1fr)}.sgs>div{padding:0 14px;text-align:center}.sgs .rl{font-weight:bold;margin-bottom:22px}.sgs .sl{border-top:1px solid #000}.sgs .pt{margin-top:5px;display:flex;align-items:flex-end;gap:6px;white-space:nowrap}.sgs .pl{flex:1;border-bottom:1px solid #000;height:12px}.pre{white-space:pre-wrap}</style>")});
+document.addEventListener("submit",e=>{const f=e.target;if(!f.dataset.f)return;e.preventDefault();const o=Object.fromEntries(new FormData(f)),now=new Date().toISOString();
+if(f.dataset.f==="LG"){doLogin(o);return}
+if(f.dataset.f==="DC"){saveDC(f.dataset.k,o,now);return}
+if(f.dataset.f==="A"){const ref="NOA-"+new Date().getFullYear()+"-"+String(Math.max(0,...D.map(r=>+r.ref.slice(-4)||0))+1).padStart(4,"0");D.push({id:"i"+Date.now(),ref,sur:o.sur.trim(),first:o.first.trim(),mi:o.mi.trim(),agency:role==="agency"?ag:o.agency,dept:o.dept.trim(),doi:o.doi,toi:o.toi,concern:o.concern.trim(),by:o.by.trim(),at:now,createdBy:user.name});save();toast("Submitted "+ref);render();return}
+const r=D.find(x=>x.id===f.dataset.id);
+if(f.dataset.f==="EB"||f.dataset.f==="EC"){saveEdit(f.dataset.f,o,r,now);return}
+if(f.dataset.f==="B"){r.rev={cat:o.cat,offense:o.offense.trim(),days:o.days,by:o.by.trim(),at:now,nth:o.cat==="Minor"?o.nth:"",act:o.cat==="Minor"?o.act:"",rep:o.cat==="Minor"?o.rep:""};save();toast("Review saved");render();openDoc(r,o.cat==="Minor"?"dar":o.cat==="Commitment"?"cl":"sc")}
+if(f.dataset.f==="C"){r.fin={viol:o.viol.trim(),expl:o.expl.trim(),edate:o.edate,nth:o.nth,rec:o.rec,rep:o.rep,recd:o.recd.trim(),by:o.by.trim(),at:now};save();render();openDoc(r,"dar")}});
+document.addEventListener("input",e=>{if(e.target.id==="fq"){fQ=e.target.value;const p=e.target.selectionStart;render();const i=$("#fq");i.focus();i.setSelectionRange(p,p)}});
+document.addEventListener("change",e=>{const t=e.target;if(t.id==="lgid"){lgId=t.value;lgMsg="";showLogin();return}if(t.id==="dag"){dAg=t.value;render();return}if(t.id==="fs"){fStatus=t.value;render();return}
+const f=t.closest&&t.closest("form");if(!f)return;
+if(t.name==="cat")f.querySelectorAll(".mn").forEach(x=>x.style.display=t.value==="Minor"?"":"none");
+if(t.name==="nth"){const a=f.elements.act||f.elements.rec;const i=[...a.options].findIndex(o=>o.value.startsWith(t.value));if(i>=0)a.selectedIndex=i;const rp=f.elements.rep;if(rp){const nx=NTH[NTH.indexOf(t.value)+1],j=nx?[...rp.options].findIndex(o=>o.value.startsWith(nx)):0;rp.selectedIndex=j>=0?j:0}}});
+function unlock(){user=ACC[0];role="admin";ag=AG[0];tab="A";$("#login").style.display="none";$("#who").innerHTML=esc(user.name)+' <span class="tag">Unrestricted</span>';render()}
+function logout(){unlock()}
+unlock();
+</script></body></html>
