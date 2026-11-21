@@ -215,7 +215,7 @@
         if (cloudData.docControl) {
           origSetItem(STORAGE_KEY_DOC, JSON.stringify(cloudData.docControl));
         }
-        if (typeof window.render === 'function') {
+        if (window.user && typeof window.render === 'function') {
           window.render();
         }
       }
