@@ -1,13 +1,14 @@
 /**
  * May Harvest Corporation - Disciplinary Action Tracker
- * Hybrid Dual-Cloud Engine: Cloudflare Edge + Supabase Cloud DB (v2.0)
+ * Hybrid Dual-Cloud Engine: Cloudflare Edge + Supabase Cloud DB (v2.1)
  * 
  * Features:
- * - 24/7 Global Availability on Cloudflare (Instant sub-second loading, no cold starts)
+ * - 24/7 Global Availability (Instant sub-second loading, no cold starts)
  * - Real-time 2-way cloud database synchronization via Supabase PostgreSQL
+ * - Infinite loop & echo protection (No repetitive flashing or sync loops)
  * - Non-destructive record conflict resolution & merging
  * - Automatic offline fallback to localStorage
- * - Live status pill indicator
+ * - Clean status pill indicator
  */
 
 (function () {
@@ -21,13 +22,15 @@
   const SUPABASE_URL = 'https://svquyjpguhrmhzbgynsw.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_J6udCVSr_aA2_LYp5QcSGQ_hMFu_wMA';
   const SUPABASE_ROOM = 'disciplinary_tracker';
-  const SYNC_INTERVAL_MS = 15000;
-  const DEBOUNCE_MS = 600;
+  const SYNC_INTERVAL_MS = 25000;
+  const DEBOUNCE_MS = 800;
 
   let supabaseClient = null;
   let isSyncing = false;
+  let isApplyingCloudData = false;
   let syncTimeout = null;
   let realtimeChannel = null;
+  let lastSyncedHash = '';
 
   // Initialize Supabase Client
   function initSupabase() {
@@ -52,9 +55,13 @@
           'postgres_changes',
           { event: '*', schema: 'public', table: 'party_sync', filter: 'room=eq.' + SUPABASE_ROOM },
           (payload) => {
-            console.log('[MHC DAT] Real-time cloud update received from Supabase.');
             if (payload && payload.new && payload.new.data) {
-              applyIncomingCloudData(payload.new.data, 'Supabase Realtime');
+              const cloudData = payload.new.data;
+              const incomingHash = getHash(cloudData);
+              if (incomingHash !== lastSyncedHash) {
+                console.log('[MHC DAT] Real-time cloud update received from Supabase.');
+                applyIncomingCloudData(cloudData, 'Supabase Realtime');
+              }
             }
           }
         )
@@ -64,10 +71,26 @@
     }
   }
 
+  function getHash(data) {
+    if (!data) return '';
+    try {
+      return JSON.stringify({
+        r: (data.records || []).length,
+        rlast: (data.records && data.records.length) ? data.records[data.records.length - 1].id : '',
+        a: Object.keys(data.accounts || {}).length,
+        d: (data.docControl && data.docControl.DCL) ? data.docControl.DCL.length : 0
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Intercept localStorage setItem to trigger cloud sync automatically
   const origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function (key, value) {
     origSetItem(key, value);
+    // Ignore updates during cloud data application to prevent infinite push/pull loops
+    if (isApplyingCloudData) return;
     if (key === STORAGE_KEY_RECORDS || key === STORAGE_KEY_ACCOUNTS || key === STORAGE_KEY_DOC) {
       schedulePushSync();
     }
@@ -98,16 +121,24 @@
   }
 
   async function pushDataToClouds() {
-    if (isSyncing) return;
+    if (isSyncing || isApplyingCloudData) return;
+    // Do not auto-push if not logged in
+    if (!window.user) return;
+
+    const data = getLocalPayload();
+    const currentHash = getHash(data);
+    if (currentHash === lastSyncedHash && lastSyncedHash !== '') {
+      return; // No real data changes
+    }
+
     try {
-      const data = getLocalPayload();
       isSyncing = true;
-      setCloudStatus(true, 'Syncing to Cloud...', true);
+      setCloudStatus(true, 'Syncing...', true);
 
       let supaOk = false;
       let renderOk = false;
 
-      // 1. Push to Supabase Cloud DB (Always online on Cloudflare Edge)
+      // 1. Push to Supabase Cloud DB
       if (supabaseClient) {
         try {
           const { error } = await supabaseClient.from('party_sync').upsert({
@@ -131,15 +162,14 @@
         if (res.ok) renderOk = true;
       } catch (_) {}
 
-      if (supaOk) {
+      if (supaOk || renderOk) {
+        lastSyncedHash = currentHash;
         setCloudStatus(true, 'Supabase Cloud Connected');
-      } else if (renderOk) {
-        setCloudStatus(true, 'Server Synced');
       } else {
         setCloudStatus(true, 'Saved Locally');
       }
     } catch (e) {
-      setCloudStatus(false, 'Local / Offline Mode');
+      setCloudStatus(false, 'Local Mode');
     } finally {
       isSyncing = false;
     }
@@ -147,8 +177,7 @@
 
   // Pull data from Supabase first, fallback to Node backend
   async function pullDataFromClouds() {
-    if (isSyncing) return;
-    isSyncing = true;
+    if (isSyncing || isApplyingCloudData) return;
     let cloudData = null;
     let source = '';
 
@@ -161,7 +190,7 @@
           .eq('room', SUPABASE_ROOM)
           .maybeSingle();
 
-        if (!error && data && data.data && (Array.isArray(data.data.records) && data.data.records.length > 0 || Object.keys(data.data.accounts || {}).length > 0)) {
+        if (!error && data && data.data) {
           cloudData = data.data;
           source = 'Supabase';
         }
@@ -185,27 +214,25 @@
     }
 
     if (cloudData) {
-      applyIncomingCloudData(cloudData, source);
-    } else {
-      // If cloud is empty but local has data, seed cloud from local
-      const local = getLocalPayload();
-      if ((Array.isArray(local.records) && local.records.length > 0) || Object.keys(local.accounts || {}).length > 0) {
-        isSyncing = false;
-        pushDataToClouds();
-        return;
+      const incomingHash = getHash(cloudData);
+      if (incomingHash !== lastSyncedHash) {
+        applyIncomingCloudData(cloudData, source);
+      } else {
+        setCloudStatus(true, 'Supabase Cloud Connected');
       }
-      setCloudStatus(true, 'Cloud Ready (0 records)');
+    } else {
+      setCloudStatus(true, 'Supabase Cloud Connected');
     }
-
-    isSyncing = false;
   }
 
   function applyIncomingCloudData(cloudData, source) {
+    if (!cloudData) return;
+    isApplyingCloudData = true;
     try {
+      lastSyncedHash = getHash(cloudData);
       if (typeof window.applyDatData === 'function') {
         window.applyDatData(cloudData);
       } else {
-        // Fallback direct storage update
         if (Array.isArray(cloudData.records)) {
           origSetItem(STORAGE_KEY_RECORDS, JSON.stringify(cloudData.records));
         }
@@ -219,10 +246,12 @@
           window.render();
         }
       }
-      setCloudStatus(true, source + ' Synced (' + (cloudData.records ? cloudData.records.length : 0) + ' records)');
+      setCloudStatus(true, 'Supabase Cloud Connected');
       console.log('[MHC DAT] Synced data from ' + source);
     } catch (err) {
       console.error('[MHC DAT] Apply cloud data error:', err);
+    } finally {
+      setTimeout(() => { isApplyingCloudData = false; }, 300);
     }
   }
 
