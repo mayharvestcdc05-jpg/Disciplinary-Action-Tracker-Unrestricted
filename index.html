@@ -52,7 +52,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:4px;font-family:ui-monos
 <script>
 const MAP={MHC:"May Harvest Corporation",Workbridge:"Workbridge Corporation",Multi:"Multicareer Manpower Services","Top Jinzai":"Top Jinzai Company, Inc.",BLGM:"BLGM Manpower Services",Omnichron:"Omnichron Security Agency, Inc"};
 const AG=Object.values(MAP);
-const DEPTS=["Basic","Further","Blast","CCM","Warehouse","BLGM","E&M","PLI","Scaler","Dry warehouse","PFRP","24 Chicken","Utility","Canteen","Admin"];
+const DEPTS=["Basic","Further","Blast","CCM","Warehouse","BLGM","E&M","Quality","Scaler","Dry warehouse","PFRP","24 Chicken","Utility","Canteen","Admin"];
 const ACC=[{id:"adminhead",name:"Admin Head",role:"admin"},{id:"prod",name:"Production Head",role:"head"},{id:"wh",name:"Warehouse Head",role:"head"},{id:"qa",name:"Quality Head",role:"head"},{id:"eng",name:"Engineering Head",role:"head"},{id:"ops",name:"Operations Manager",role:"head"},{id:"hr1",name:"HR 1",role:"admin"},{id:"hr2",name:"HR 2",role:"admin"},{id:"dco",name:"Document Control Officer",role:"dco"},{id:"wb",name:"Workbridge",role:"agency",agency:"Workbridge"},{id:"multi",name:"Multi",role:"agency",agency:"Multi"},{id:"tj",name:"Top Jinzai",role:"agency",agency:"Top Jinzai"},{id:"blgm",name:"BLGM",role:"agency",agency:"BLGM"},{id:"omni",name:"Omnichron",role:"agency",agency:"Omnichron"}];
 ACC.forEach(a=>{if(a.agency){a.agency=MAP[a.agency]||a.agency;a.name=a.agency}});
 const PERM={admin:["A","B","C","D","G","E","H"],agency:["A","B","D","G"],head:["A","D","G"],dco:["H"]};
@@ -299,7 +299,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 let mem=null;
 function load(){try{return JSON.parse(localStorage.getItem("dat1")||"[]")}catch(e){return mem||[]}}
 let D=load(),role="admin",ag=AG[0],tab="A",fStatus="",fQ="";
-D.forEach(r=>{if(MAP[r.agency])r.agency=MAP[r.agency]});
+D.forEach(r=>{if(MAP[r.agency])r.agency=MAP[r.agency];if(r.dept==="PLI")r.dept="Quality"});
 function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();}
 
 window.getDatData = function() {
@@ -314,8 +314,9 @@ window.applyDatData = function(cloudData) {
   if (!cloudData) return;
   if (Array.isArray(cloudData.records)) {
     const localMap = new Map();
-    D.forEach(r => localMap.set(r.id, r));
+    D.forEach(r => { if(r.dept==="PLI")r.dept="Quality"; localMap.set(r.id, r); });
     cloudData.records.forEach(r => {
+      if(r.dept==="PLI") r.dept="Quality";
       if (!localMap.has(r.id)) {
         D.push(r);
         localMap.set(r.id, r);
@@ -374,18 +375,62 @@ function viewA(){const v=vis();return`<div class="card"><h2>A. Notice of Attenti
 <div class="row"><span class="mut">Total notices: ${v.length}</span><span><button type="button" class="s" data-act="csv">Export file (CSV)</button> <button class="b">Submit</button></span></div></form></div>
 <div class="card"><h2>Recent notices</h2>${v.length?v.slice().reverse().slice(0,8).map(r=>`<div style="padding:8px 0;border-top:1px solid var(--bd)">${info(r)}</div>`).join(""):'<p class="mut">None yet.</p>'}</div>`}
 
+let PENDING_FILES={};
+function handleFileSelect(inp, id){
+  const f=inp.files&&inp.files[0];
+  if(!f)return;
+  if(f.size>8*1024*1024){toast("Masyadong malaki ang file (maximum 8MB).");inp.value="";return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    PENDING_FILES[id]={
+      name:f.name,
+      size:f.size,
+      type:f.type||"application/octet-stream",
+      data:e.target.result,
+      uploadedAt:new Date().toISOString()
+    };
+    const prev=$("#file_preview_"+id);
+    if(prev){
+      prev.innerHTML=`<span class="tag ok" style="margin-top:4px;display:inline-block">✓ ${esc(f.name)} (${Math.round(f.size/1024)} KB) naka-attach</span>`;
+    }
+    toast("File attached: "+f.name);
+  };
+  reader.readAsDataURL(f);
+}
+
+function viewAttachedFile(id){
+  const r=D.find(x=>x.id===id);
+  const file=r&&r.rev&&r.rev.file;
+  if(!file||!file.data){toast("Walang naka-attach na file.");return}
+  const w=window.open("");
+  if(file.type&&file.type.startsWith("image/")){
+    w.document.write(`<title>${esc(file.name)}</title><body style="margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh"><img src="${file.data}" style="max-width:100%;max-height:100vh;box-shadow:0 0 20px rgba(0,0,0,0.5)"></body>`);
+  } else if(file.type==="application/pdf"){
+    w.document.write(`<title>${esc(file.name)}</title><iframe src="${file.data}" style="position:fixed;top:0;left:0;width:100%;height:100%;border:none;"></iframe>`);
+  } else {
+    const a=document.createElement("a");
+    a.href=file.data;
+    a.download=file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if(w)w.close();
+  }
+}
+
 function viewB(){const v=vis(),p=v.filter(r=>!r.rev),d=v.filter(r=>r.rev);
 return`<div class="card"><h2>B. Agency review</h2><p class="mut">Pending review: ${p.length}. Minor: DAR. Major/Critical: Showcause letter with explanation period. Or Commitment Letter.</p>
 ${p.map(r=>`<div style="padding:10px 0;border-top:1px solid var(--bd)">${info(r)}<form data-f="B" data-id="${r.id}"><div class="grid" style="margin-top:8px">
 <div><label>Classification *</label><select name="cat"><option value="Minor">1. Minor offense (DAR)</option><option value="Major">2. Major offense (Showcause)</option><option value="Critical">2. Critical offense (Showcause)</option><option value="Commitment">3. Commitment letter</option></select></div>
 <div><label>Offense / violation * (e.g. attendance)</label><input name="offense" required></div>
-<div><label>Explanation within (Major/Critical)</label><select name="days"><option value="3">3 days</option><option value="5">5 days</option></select></div>
-<div><label>Reviewed by *</label><input name="by" required></div><div class="mn"><label>Offense no. (Minor)</label><select name="nth">${nthOpts(5)}</select></div><div class="mn full"><label>Action / Recommendation (Minor)</label><select name="act">${actOpts(MIN)}</select></div><div class="mn full"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,MIN[1])}</select></div></div>
+<div><label>Explanation within (Major/Critical)</label><select name="days"><option value="1">1 day</option><option value="3">3 days</option><option value="5">5 days</option></select></div>
+<div><label>Reviewed by *</label><input name="by" required></div><div class="mn"><label>Offense no. (Minor)</label><select name="nth">${nthOpts(5)}</select></div><div class="mn full"><label>Action / Recommendation (Minor)</label><select name="act">${actOpts(MIN)}</select></div><div class="mn full"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,MIN[1])}</select></div>
+<div class="full"><label>Mag-upload ng Disciplinary Action Letter (Optional: Signed PDF / Larawan / Scan)</label><input type="file" accept=".pdf,image/*,.doc,.docx" onchange="handleFileSelect(this, '${r.id}')"><div id="file_preview_${r.id}"></div></div></div>
 <div class="row"><span class="mut">Review date/time is automatic</span><button class="b">Submit review</button></div></form></div>`).join("")||'<p class="mut">Nothing pending.</p>'}</div>
 <div class="card"><div class="row" style="margin:0 0 8px"><h2 style="margin:0">Reviewed</h2><button class="s" data-act="csv">Export file (CSV)</button></div><div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Level</th><th>Reviewed by</th><th>Reviewed</th><th>Letter</th></tr>
 ${d.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.rev.cat)}</td><td>${esc(r.rev.by)}</td><td>${fmt(r.rev.at)}</td><td>${docBtns(r)} ${edBtns(r,"B")}</td></tr>`).join("")}</table></div></div>`}
 
-function docBtns(r){const c=r.rev&&r.rev.cat;if(!c)return"";if(c==="Minor")return`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`;if(c==="Commitment")return`<button class="s" data-act="doc" data-t="cl" data-id="${r.id}">Letter</button>`;return`<button class="s" data-act="doc" data-t="sc" data-id="${r.id}">Showcause</button> `+(r.fin?`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`:"")}
+function docBtns(r){const c=r.rev&&r.rev.cat;if(!c)return"";let b="";if(c==="Minor")b=`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`;else if(c==="Commitment")b=`<button class="s" data-act="doc" data-t="cl" data-id="${r.id}">Letter</button>`;else b=`<button class="s" data-act="doc" data-t="sc" data-id="${r.id}">Showcause</button> `+(r.fin?`<button class="s" data-act="doc" data-t="dar" data-id="${r.id}">DAR</button>`:"");if(r.rev&&r.rev.file)b+=` <button class="s" data-act="viewfile" data-id="${r.id}" title="${esc(r.rev.file.name)}" style="color:var(--ok);border-color:var(--ok)">📎 Letter</button>`;return b;}
 
 function viewC(){const v=vis().filter(isMC),o=v.filter(r=>!r.fin),c=v.filter(r=>r.fin);
 return`<div class="card"><h2>C. Review of Major and Critical offenses</h2>
@@ -428,15 +473,16 @@ const selO=(l,v)=>l.map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).
 function diff(a,b,lab){return Object.keys(lab).filter(k=>String(a[k]||"")!==String(b[k]||"")).map(k=>({f:lab[k],a:a[k]||"",b:b[k]||""}))}
 function saveEdit(k,o,r,now){let ch,sec;
 if(k==="EB"){const v=r.rev,mc=o.cat==="Major"||o.cat==="Critical",n={cat:o.cat,offense:o.offense.trim(),days:mc?o.days:v.days,nth:o.cat==="Minor"?o.nth:"",act:o.cat==="Minor"?o.act:"",rep:o.cat==="Minor"?o.rep:""};
+if(PENDING_FILES[r.id]){v.file=PENDING_FILES[r.id];delete PENDING_FILES[r.id];}
 ch=diff(v,n,{cat:"Classification",offense:"Offense",days:"Explanation days",nth:"Offense no.",act:"Action/Recommendation",rep:"When Repeated"});if(ch.length)Object.assign(v,n);sec="Agency review (B)"}
 else{const v=r.fin,n={viol:o.viol.trim(),expl:o.expl.trim(),edate:o.edate,nth:o.nth,rec:o.rec,rep:o.rep,recd:o.recd.trim()};
 ch=diff(v,n,{viol:"Violation",expl:"Explanation",edate:"Explanation date",nth:"Offense no.",rec:"Action/Recommendation",rep:"When Repeated",recd:"Remarks"});if(ch.length)Object.assign(v,n);sec="Major/Critical review (C)"}
-if(!ch.length){toast("No changes made");return}
+if(!ch.length&&!v.file){toast("No changes made");return}
 (r.log=r.log||[]).push({at:now,acct:user.name,by:o.eby.trim(),sec,ch,why:o.why.trim()});save();$("#edwrap").style.display="none";toast("Changes saved and logged");render()}
 function openEdit(id,k){const r=D.find(x=>x.id===id);let h="";
 const foot=`<div class="grid" style="margin-top:10px"><div><label>Edited by *</label><input name="eby" required></div><div><label>Reason for change *</label><input name="why" required></div></div><div class="row"><button type="button" class="s" data-act="edclose">Cancel</button><button class="b">Save changes</button></div></form>`;
 if(k==="H"){h=`<h2>Edit history - ${esc(r.ref)}</h2>`+((r.log||[]).length?`<div class="tw"><table><tr><th>When</th><th>Edited by</th><th>Section</th><th>Changes (old &rarr; new)</th><th>Reason</th></tr>${r.log.slice().reverse().map(l=>`<tr><td>${fmt(l.at)}</td><td>${esc(l.by)}</td><td>${esc(l.sec)}</td><td>${l.ch.map(c=>`<b>${esc(c.f)}:</b> ${esc(c.a||"(blank)")} &rarr; ${esc(c.b||"(blank)")}`).join("<br>")}</td><td>${esc(l.why)}</td></tr>`).join("")}</table></div>`:'<p class="mut">No edits yet.</p>')+`<div class="row"><span class="mut">Original review: ${esc(r.rev.by)}, ${fmt(r.rev.at)}</span><button class="s" data-act="edclose">Close</button></div>`}
-else if(k==="B"){const v=r.rev,m=v.cat==="Minor"?"":"display:none";h=`<h2>Edit review - ${esc(r.ref)} ${esc(nm(r))}</h2><form data-f="EB" data-id="${id}"><div class="grid"><div><label>Classification</label><select name="cat">${selO(["Minor","Major","Critical","Commitment"],v.cat)}</select></div><div><label>Offense / violation</label><input name="offense" required value="${esc(v.offense)}"></div><div><label>Explanation within (Major/Critical)</label><select name="days"><option value="3"${v.days==="3"?" selected":""}>3 days</option><option value="5"${v.days==="5"?" selected":""}>5 days</option></select></div><div class="mn" style="${m}"><label>Offense no. (Minor)</label><select name="nth">${selO(NTH,v.nth||"1st")}</select></div><div class="mn full" style="${m}"><label>Action / Recommendation (Minor)</label><select name="act">${selO(MIN,v.act||MIN[0])}</select></div><div class="mn full" style="${m}"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,v.rep||"")}</select></div></div>`+foot}
+else if(k==="B"){const v=r.rev,m=v.cat==="Minor"?"":"display:none";h=`<h2>Edit review - ${esc(r.ref)} ${esc(nm(r))}</h2><form data-f="EB" data-id="${id}"><div class="grid"><div><label>Classification</label><select name="cat">${selO(["Minor","Major","Critical","Commitment"],v.cat)}</select></div><div><label>Offense / violation</label><input name="offense" required value="${esc(v.offense)}"></div><div><label>Explanation within (Major/Critical)</label><select name="days"><option value="1"${v.days==="1"?" selected":""}>1 day</option><option value="3"${v.days==="3"?" selected":""}>3 days</option><option value="5"${v.days==="5"?" selected":""}>5 days</option></select></div><div class="mn" style="${m}"><label>Offense no. (Minor)</label><select name="nth">${selO(NTH,v.nth||"1st")}</select></div><div class="mn full" style="${m}"><label>Action / Recommendation (Minor)</label><select name="act">${selO(MIN,v.act||MIN[0])}</select></div><div class="mn full" style="${m}"><label>When Repeated - Action / Recommendation (Minor)</label><select name="rep"><option value="">-</option>${selO(MIN,v.rep||"")}</select></div>${v.file?`<div class="full" style="padding:6px;background:var(--bg);border-radius:6px;margin:4px 0">Naka-attach na sulat: <b>${esc(v.file.name)}</b> <button type="button" class="s" onclick="viewAttachedFile('${id}')" style="margin-left:6px">Tingnan</button></div>`:""}<div class="full"><label>Palitan / Mag-upload ng Disciplinary Action Letter (PDF / Larawan / Scan)</label><input type="file" accept=".pdf,image/*,.doc,.docx" onchange="handleFileSelect(this, '${id}')"><div id="file_preview_${id}"></div></div></div>`+foot}
 else{const v=r.fin;h=`<h2>Edit Major/Critical review - ${esc(r.ref)} ${esc(nm(r))}</h2><form data-f="EC" data-id="${id}"><div class="grid"><div class="full"><label>Violation</label><input name="viol" required value="${esc(v.viol)}"></div><div class="full"><label>Employee explanation</label><textarea name="expl" required>${esc(v.expl)}</textarea></div><div><label>Date explanation received</label><input type="date" name="edate" value="${esc(v.edate)}"></div><div><label>Offense no.</label><select name="nth">${selO(NTH.slice(0,3),v.nth)}</select></div><div class="full"><label>Action / Recommendation</label><select name="rec">${selO(MAJ,v.rec)}</select></div><div class="full"><label>When Repeated - Action / Recommendation</label><select name="rep"><option value="">-</option>${selO(MAJ,v.rep||"")}</select></div><div class="full"><label>Remarks</label><input name="recd" value="${esc(v.recd)}"></div></div>`+foot}
 $("#ed").innerHTML=h;fillBy("#ed");$("#edwrap").style.display="block"}
 let curDoc="",curT="",curR="";
@@ -470,6 +516,7 @@ else if(a==="logout")logout();
 else if(a==="changepw")showPwModal();
 else if(a==="pwclose")$("#pwwrap").style.display="none";
 else if(a==="doc")openDoc(D.find(r=>r.id===b.dataset.id),b.dataset.t);
+else if(a==="viewfile")viewAttachedFile(b.dataset.id);
 else if(a==="close")$("#docwrap").style.display="none";
 else if(a==="print"){try{window.print()}catch(x){toast("Print blocked - use Save as HTML")}}
 else if(a==="savedoc")saveFile(fname(DC[curT]||{},DOCS.find(d=>d[0]===curT)[1],ymd((D.find(x=>x.ref===curR)||{}).doi),".html"),'<!DOCTYPE html><meta charset="utf-8"><body style="font:14px/1.5 Times New Roman,serif;max-width:800px;margin:30px auto">'+curDoc+"<style>h3,.sub{text-align:center}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:6px;text-align:left;vertical-align:top}th{width:38%;background:#eee}.sig{display:flex;gap:30px;margin-top:36px}.sig div{flex:1;border-top:1px solid #000}p{margin:5px 0}.sgs{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px}.g4{grid-template-columns:repeat(2,1fr)}.sgs>div{padding:0 14px;text-align:center}.sgs .rl{font-weight:bold;margin-bottom:22px}.sgs .sl{border-top:1px solid #000}.sgs .pt{margin-top:5px;display:flex;align-items:flex-end;gap:6px;white-space:nowrap}.sgs .pl{flex:1;border-bottom:1px solid #000;height:12px}.pre{white-space:pre-wrap}</style>")});
@@ -480,7 +527,7 @@ if(f.dataset.f==="DC"){saveDC(f.dataset.k,o,now);return}
 if(f.dataset.f==="A"){const ref="NOA-"+new Date().getFullYear()+"-"+String(Math.max(0,...D.map(r=>+r.ref.slice(-4)||0))+1).padStart(4,"0");D.push({id:"i"+Date.now(),ref,sur:o.sur.trim(),first:o.first.trim(),mi:o.mi.trim(),agency:role==="agency"?ag:o.agency,dept:o.dept.trim(),doi:o.doi,toi:o.toi,concern:o.concern.trim(),by:o.by.trim(),at:now,createdBy:user.name});save();toast("Submitted "+ref);render();return}
 const r=D.find(x=>x.id===f.dataset.id);
 if(f.dataset.f==="EB"||f.dataset.f==="EC"){saveEdit(f.dataset.f,o,r,now);return}
-if(f.dataset.f==="B"){r.rev={cat:o.cat,offense:o.offense.trim(),days:o.days,by:o.by.trim(),at:now,nth:o.cat==="Minor"?o.nth:"",act:o.cat==="Minor"?o.act:"",rep:o.cat==="Minor"?o.rep:""};save();toast("Review saved");render();openDoc(r,o.cat==="Minor"?"dar":o.cat==="Commitment"?"cl":"sc")}
+if(f.dataset.f==="B"){const attachedFile=PENDING_FILES[r.id]||(r.rev&&r.rev.file)||null;r.rev={cat:o.cat,offense:o.offense.trim(),days:o.days,by:o.by.trim(),at:now,nth:o.cat==="Minor"?o.nth:"",act:o.cat==="Minor"?o.act:"",rep:o.cat==="Minor"?o.rep:"",file:attachedFile};delete PENDING_FILES[r.id];save();toast("Review saved"+(attachedFile?" with attached letter":""));render();openDoc(r,o.cat==="Minor"?"dar":o.cat==="Commitment"?"cl":"sc")}
 if(f.dataset.f==="C"){r.fin={viol:o.viol.trim(),expl:o.expl.trim(),edate:o.edate,nth:o.nth,rec:o.rec,rep:o.rep,recd:o.recd.trim(),by:o.by.trim(),at:now};save();render();openDoc(r,"dar")}});
 document.addEventListener("input",e=>{if(e.target.id==="fq"){fQ=e.target.value;const p=e.target.selectionStart;render();const i=$("#fq");i.focus();i.setSelectionRange(p,p)}});
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="lgid"){lgId=t.value;lgMsg="";showLogin();return}if(t.id==="dag"){dAg=t.value;render();return}if(t.id==="fs"){fStatus=t.value;render();return}
