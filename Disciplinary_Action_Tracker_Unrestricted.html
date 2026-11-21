@@ -56,7 +56,7 @@ ACC.forEach(a=>{if(a.agency){a.agency=MAP[a.agency]||a.agency;a.name=a.agency}})
 const PERM={admin:["A","B","C","D","G"],agency:["A","B","D","G"],head:["A","D","G"],dco:[]};
 let user=null,AC={},lgId="adminhead",lgMsg="";
 try{AC=JSON.parse(localStorage.getItem("dat_ac")||"{}")}catch(e){}
-function saveAc(){try{localStorage.setItem("dat_ac",JSON.stringify(AC))}catch(e){}}
+function saveAc(){try{localStorage.setItem("dat_ac",JSON.stringify(AC))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();}
 async function hp(id,pw){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dat:"+id+":"+pw));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return btoa(unescape(encodeURIComponent("dat:"+id+":"+pw)))}}
 function showLogin(){$("#login").style.display="block";const first=!AC[lgId];
 $("#lg").innerHTML=`<h2>Disciplinary Action Tracker</h2><form data-f="LG"><label>Account</label><select name="id" id="lgid">${ACC.map(x=>`<option value="${x.id}"${x.id===lgId?" selected":""}>${esc(x.name)}</option>`).join("")}</select>`+(first&&lgId!=="adminhead"?`<p class="mut">No password has been set for this account yet. Ask the Admin Head to set one.</p>`:`<label style="margin-top:10px">${first?"Create password (min. 6 characters)":"Password"}</label><input type="password" name="pw" required autocomplete="off">${first?'<label style="margin-top:10px">Confirm password</label><input type="password" name="pw2" required autocomplete="off">':""}<div class="row"><span class="mut" style="color:var(--bad)">${esc(lgMsg)}</span><button class="b">${first?"Set password and log in":"Log in"}</button></div>`)+`</form>`}
@@ -93,7 +93,7 @@ const DOCS=[["tracker","Disciplinary Action Tracker"],["noa","Notice of Attentio
 function saveDC(k,o,now){if(!user){return}
 const old=DC[k]||{},n={code:o.code.trim(),rev:o.rev.trim(),eff:o.eff},ch=diff(old,n,{code:"Document Code",rev:"Revision No.",eff:"Effective Date"});
 if(!ch.length){toast("No changes made");return}
-DC[k]=n;DCL.push({at:now,by:o.eby.trim(),doc:DOCS.find(d=>d[0]===k)[1],ch,why:o.why.trim()});try{localStorage.setItem("dat_dc",JSON.stringify({DC,DCL}))}catch(e){}toast("Saved and logged");render()}
+DC[k]=n;DCL.push({at:now,by:o.eby.trim(),doc:DOCS.find(d=>d[0]===k)[1],ch,why:o.why.trim()});try{localStorage.setItem("dat_dc",JSON.stringify({DC,DCL}))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();toast("Saved and logged");render()}
 function viewH(){return`<div class="card"><h2>Document Control</h2><p class="mut">Controlled-document details for FSSC 22000 documented information. The code, revision number and effective date print in the header of each letter, and every change is logged below. Only the Document Control Officer and Admin Head can edit this.</p></div>`+DOCS.map(d=>{const c=DC[d[0]]||{},l=DCL.filter(x=>x.doc===d[1]).pop();return`<div class="card"><h2>${esc(d[1])}</h2><form data-f="DC" data-k="${d[0]}"><div class="grid"><div><label>Document Code *</label><input name="code" required value="${esc(c.code)}" placeholder="e.g. HR-F-012"></div><div><label>Revision No. *</label><input name="rev" required value="${esc(c.rev)}" placeholder="e.g. 01"></div><div><label>Effective Date *</label><input type="date" name="eff" required value="${esc(c.eff)}"></div><div><label>Updated by *</label><input name="eby" required></div><div class="full"><label>Reason / description of change *</label><input name="why" required placeholder="e.g. Initial issue"></div></div><div class="row"><span class="mut">${l?"Last updated by "+esc(l.by)+", "+fmt(l.at):"Not yet issued"}</span><button class="b">Save</button></div></form></div>`}).join("")+`<div class="card"><h2>Revision history</h2>${DCL.length?`<div class="tw"><table><tr><th>When</th><th>Document</th><th>Updated by</th><th>Changes (old &rarr; new)</th><th>Reason</th></tr>${DCL.slice().reverse().map(l=>`<tr><td>${fmt(l.at)}</td><td>${esc(l.doc)}</td><td>${esc(l.by)}</td><td>${l.ch.map(c=>`<b>${esc(c.f)}:</b> ${esc(c.a||"(blank)")} &rarr; ${esc(c.b||"(blank)")}`).join("<br>")}</td><td>${esc(l.why)}</td></tr>`).join("")}</table></div>`:'<p class="mut">No revisions recorded yet.</p>'}</div>`}
 function viewE(){return`<div class="card"><h2>Accounts</h2><p class="mut">Set or reset each account's password and share it with the user. Accounts cannot log in until a password is set.</p><div class="tw"><table><tr><th>Account</th><th>Access</th><th>Password</th><th>Set new password</th></tr>${ACC.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.role==="admin"?"Admin (all records)":a.role==="agency"?"Agency: own records only":a.role==="dco"?"Document control only":"Dept head (file notices, view status)"}</td><td>${AC[a.id]?"Set":"Not set"}${AC[a.id]?` <button class="s" data-act="rstpw" data-id="${a.id}">Reset</button>`:""}</td><td><input type="text" id="pw_${a.id}" placeholder="min. 6 characters" style="width:150px"> <button class="s" data-act="setpw" data-id="${a.id}">Set</button></td></tr>`).join("")}</table></div></div>
 <div class="card"><h2>Delete records</h2><p class="mut">Admin Head only. Deleted records cannot be recovered, so use Export file on tabs A to D first. Tick records for "Delete selected".</p><div class="tw"><table><tr><th></th><th>Ref</th><th>Employee</th><th>Agency</th><th>Status</th></tr>${D.map(r=>`<tr><td><input type="checkbox" class="dsel" value="${r.id}" style="width:auto"></td><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${esc(status(r))}</td></tr>`).join("")||'<tr><td colspan="5" class="mut">No records.</td></tr>'}</table></div><div class="grid" style="margin-top:10px"><div><label>Type RESET to confirm</label><input id="rstc" autocomplete="off"></div></div><div class="row"><span><button class="s" data-act="delsel">Delete selected</button> <button class="s" data-act="delall">Delete all records</button> <button class="s" data-act="rstall">Reset all passwords (except Admin Head)</button></span></div></div>`}
@@ -103,7 +103,51 @@ let mem=null;
 function load(){try{return JSON.parse(localStorage.getItem("dat1")||"[]")}catch(e){return mem||[]}}
 let D=load(),role="admin",ag=AG[0],tab="A",fStatus="",fQ="";
 D.forEach(r=>{if(MAP[r.agency])r.agency=MAP[r.agency]});
-function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}}
+function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();}
+
+window.getDatData = function() {
+  return {
+    records: D,
+    accounts: AC,
+    docControl: { DC: DC, DCL: DCL }
+  };
+};
+
+window.applyDatData = function(cloudData) {
+  if (!cloudData) return;
+  if (Array.isArray(cloudData.records)) {
+    const localMap = new Map();
+    D.forEach(r => localMap.set(r.id, r));
+    cloudData.records.forEach(r => {
+      if (!localMap.has(r.id)) {
+        D.push(r);
+        localMap.set(r.id, r);
+      } else {
+        const local = localMap.get(r.id);
+        if ((r.fin && !local.fin) || (r.rev && !local.rev)) {
+          Object.assign(local, r);
+        }
+      }
+    });
+    mem = D;
+    try { localStorage.setItem("dat1", JSON.stringify(D)); } catch(e) {}
+  }
+  if (cloudData.accounts && typeof cloudData.accounts === "object") {
+    Object.assign(AC, cloudData.accounts);
+    try { localStorage.setItem("dat_ac", JSON.stringify(AC)); } catch(e) {}
+  }
+  if (cloudData.docControl) {
+    if (cloudData.docControl.DC) Object.assign(DC, cloudData.docControl.DC);
+    if (Array.isArray(cloudData.docControl.DCL)) {
+      const existingTimestamps = new Set(DCL.map(x => x.at));
+      cloudData.docControl.DCL.forEach(x => {
+        if (!existingTimestamps.has(x.at)) DCL.push(x);
+      });
+    }
+    try { localStorage.setItem("dat_dc", JSON.stringify({DC, DCL})); } catch(e) {}
+  }
+  if (typeof render === "function") render();
+};
 const fmt=i=>i?new Date(i).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"";
 const fd=d=>d?new Date(d+"T00:00").toLocaleDateString("en-PH",{dateStyle:"long"}):"";
 const nm=r=>r.sur+", "+r.first+(r.mi?" "+r.mi+".":"");
@@ -245,4 +289,7 @@ if(t.name==="nth"){const a=f.elements.act||f.elements.rec;const i=[...a.options]
 function unlock(){user=ACC[0];role="admin";ag=AG[0];tab="A";$("#login").style.display="none";$("#who").innerHTML=esc(user.name)+' <span class="tag">Unrestricted</span>';render()}
 function logout(){unlock()}
 unlock();
-</script></body></html>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="cloud-sync.js"></script>
+</body></html>
