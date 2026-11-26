@@ -50,12 +50,12 @@
     if (!supabaseClient) return;
     try {
       realtimeChannel = supabaseClient
-        .channel('party_sync_dat')
+        .channel('party_sync_dat_v2')
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'party_sync', filter: 'room=eq.' + SUPABASE_ROOM },
+          { event: '*', schema: 'public', table: 'party_sync' },
           (payload) => {
-            if (payload && payload.new && payload.new.data) {
+            if (payload && payload.new && payload.new.room === SUPABASE_ROOM && payload.new.data) {
               const cloudData = payload.new.data;
               const incomingHash = getHash(cloudData);
               if (incomingHash !== lastSyncedHash) {
@@ -122,8 +122,8 @@
 
   async function pushDataToClouds() {
     if (isSyncing || isApplyingCloudData) return;
-    // Do not auto-push if not logged in
-    if (!window.user) return;
+    // Push data whenever payload exists (or logged in)
+    const currentUser = (typeof user !== "undefined" && user) ? user : window.user;
 
     const data = getLocalPayload();
     const currentHash = getHash(data);
@@ -242,7 +242,7 @@
         if (cloudData.docControl) {
           origSetItem(STORAGE_KEY_DOC, JSON.stringify(cloudData.docControl));
         }
-        if (window.user && typeof window.render === 'function') {
+        if (typeof window.render === 'function') {
           window.render();
         }
       }

@@ -53,14 +53,29 @@ code{background:var(--bg);padding:2px 6px;border-radius:4px;font-family:ui-monos
 const MAP={MHC:"May Harvest Corporation",Workbridge:"Workbridge Corporation",Multi:"Multicareer Manpower Services","Top Jinzai":"Top Jinzai Company, Inc.",BLGM:"BLGM Manpower Services",Omnichron:"Omnichron Security Agency, Inc"};
 const AG=Object.values(MAP);
 const DEPTS=["Basic","Further","Blast","CCM","Warehouse","BLGM","E&M","Quality","Scaler","Dry warehouse","PFRP","24 Chicken","Utility","Canteen","Admin"];
-const ACC=[{id:"adminhead",name:"Admin Head",role:"admin"},{id:"prod",name:"Production Head",role:"head"},{id:"wh",name:"Warehouse Head",role:"head"},{id:"qa",name:"Quality Head",role:"head"},{id:"eng",name:"Engineering Head",role:"head"},{id:"ops",name:"Operations Manager",role:"head"},{id:"hr1",name:"HR 1",role:"admin"},{id:"hr2",name:"HR 2",role:"admin"},{id:"dco",name:"Document Control Officer",role:"dco"},{id:"wb",name:"Workbridge",role:"agency",agency:"Workbridge"},{id:"multi",name:"Multi",role:"agency",agency:"Multi"},{id:"tj",name:"Top Jinzai",role:"agency",agency:"Top Jinzai"},{id:"blgm",name:"BLGM",role:"agency",agency:"BLGM"},{id:"omni",name:"Omnichron",role:"agency",agency:"Omnichron"}];
+const ACC=[{id:"adminhead",name:"Admin Head",role:"admin"},{id:"hr1",name:"HR Officer 1 - Aliyah Francine Gojo Cruz",role:"admin"},{id:"hr2",name:"HR Officer 2 - Aira Jheanne Rufino, RPm",role:"admin"},{id:"prod",name:"Production Head - Geraldine Mendoza",role:"head"},{id:"wh",name:"Warehouse Head - Lilibeth Menoza",role:"head"},{id:"qa",name:"Quality Head - Jerwin Mendoza",role:"head"},{id:"eng",name:"Engineering Head - Adonis Palad",role:"head"},{id:"ops",name:"Operations Manager",role:"head"},{id:"dco",name:"Document Control Officer",role:"dco"},{id:"wb",name:"Workbridge Corporation",role:"agency",agency:"Workbridge"},{id:"multi",name:"Multicareer Manpower Services",role:"agency",agency:"Multi"},{id:"tj",name:"Top Jinzai Company, Inc.",role:"agency",agency:"Top Jinzai"},{id:"blgm",name:"BLGM Manpower Services",role:"agency",agency:"BLGM"},{id:"omni",name:"Omnichron Security Agency, Inc",role:"agency",agency:"Omnichron"}];
 ACC.forEach(a=>{if(a.agency){a.agency=MAP[a.agency]||a.agency;a.name=a.agency}});
 const PERM={admin:["A","B","C","D","G","E","H"],agency:["A","B","D","G"],head:["A","D","G"],dco:["H"]};
-const DEFAULT_DAT_PASSWORDS={adminhead:"MHC_Admin2026+",hr1:"MHC_Hr2026+",hr2:"MHC_Hr2026+",ops:"MHC_Ops2026+",dco:"MHC_Doc2026+",prod:"MHC_Dept2026+",wh:"MHC_Dept2026+",qa:"MHC_Dept2026+",eng:"MHC_Dept2026+",wb:"MHC_Agency2026+",multi:"MHC_Agency2026+",tj:"MHC_Agency2026+",blgm:"MHC_Agency2026+",omni:"MHC_Agency2026+"};
+const DEFAULT_DAT_PASSWORDS={
+  adminhead: "MHC_Admin2026+",
+  hr1: "Aliyah2026+",
+  hr2: "2026+Aira",
+  ops: "MHC_Ops2026+",
+  dco: "MHC_Doc2026+",
+  prod: "Gigi+2026",
+  wh: "+2026Beth",
+  qa: "Jerwin+2026",
+  eng: "2026+Ado",
+  wb: "rommel26+",
+  multi: "Giselle+2026",
+  tj: "2026+Nin",
+  blgm: "MHC_Agency2026+",
+  omni: "MHC_Agency2026+"
+};
 const LEGACY_DAT_PASSWORDS={adminhead:"admin123",hr1:"hr123",hr2:"hr123",ops:"ops123",dco:"doc123",prod:"prod123",wh:"wh123",qa:"qa123",eng:"eng123",wb:"wb123",multi:"multi123",tj:"tj123",blgm:"blgm123",omni:"omni123"};
 let user=null,AC={},lgId="adminhead",lgMsg="";
 try{AC=JSON.parse(localStorage.getItem("dat_ac")||"{}")}catch(e){}
-function saveAc(){try{localStorage.setItem("dat_ac",JSON.stringify(AC))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();}
+function saveAc(){try{localStorage.setItem("dat_ac",JSON.stringify(AC))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.forceSync==="function"){window.MhcCloudSync.forceSync();}else if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function"){window.MhcCloudSync.push();}}
 async function hp(id,pw){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dat:"+id+":"+pw));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return btoa(unescape(encodeURIComponent("dat:"+id+":"+pw)))}}
 
 function pickAccount(uid){
@@ -171,7 +186,7 @@ async function doLogin(o){
 
 function updateWho(){
   if(!user){$("#who").innerHTML="";return;}
-  $("#who").innerHTML=`<b>${esc(user.name)}</b> <span class="tag" style="margin:0 4px">${esc(user.role.toUpperCase())}</span> <button class="s" data-act="changepw">🔑 Change Password</button> <button class="s" data-act="logout">Log out</button>`;
+  $("#who").innerHTML=`<b>${esc(user.name)}</b> <span class="tag" style="margin:0 4px">${esc(user.role.toUpperCase())}</span> <button class="s" type="button" onclick="manualSyncRefresh()" title="Sync and refresh data from cloud">🔄 Sync Now</button> <button class="s" data-act="changepw">🔑 Change Password</button> <button class="s" data-act="logout">Log out</button>`;
 }
 
 function logout(){
@@ -300,7 +315,7 @@ let mem=null;
 function load(){try{return JSON.parse(localStorage.getItem("dat1")||"[]")}catch(e){return mem||[]}}
 let D=load(),role="admin",ag=AG[0],tab="A",fStatus="",fQ="";
 D.forEach(r=>{if(MAP[r.agency])r.agency=MAP[r.agency];if(r.dept==="PLI")r.dept="Quality"});
-function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function")window.MhcCloudSync.push();}
+function save(){mem=D;try{localStorage.setItem("dat1",JSON.stringify(D))}catch(e){}if(window.MhcCloudSync&&typeof window.MhcCloudSync.forceSync==="function"){window.MhcCloudSync.forceSync();}else if(window.MhcCloudSync&&typeof window.MhcCloudSync.push==="function"){window.MhcCloudSync.push();}}
 
 window.getDatData = function() {
   return {
@@ -372,7 +387,7 @@ function viewA(){const v=vis();return`<div class="card"><h2>A. Notice of Attenti
 <div><label>Date of incident *</label><input type="date" name="doi" required></div><div><label>Time of incident *</label><input type="time" name="toi" required></div>
 <div><label>Reported date/time</label><input value="Automatic on submit" disabled></div>
 <div class="full"><label>Concern *</label><textarea name="concern" required></textarea></div></div>
-<div class="row"><span class="mut">Total notices: ${v.length}</span><span><button type="button" class="s" data-act="csv">Export file (CSV)</button> <button class="b">Submit</button></span></div></form></div>
+<div class="row"><span class="mut">Total notices: ${v.length}</span><span><button type="button" class="s" data-act="csv">Export file (CSV)</button> <button type="reset" class="s" style="margin-right:6px">Reset Form</button> <button class="b">Submit</button></span></div></form></div>
 <div class="card"><h2>Recent notices</h2>${v.length?v.slice().reverse().slice(0,8).map(r=>`<div style="padding:8px 0;border-top:1px solid var(--bd)">${info(r)}</div>`).join(""):'<p class="mut">None yet.</p>'}</div>`}
 
 let PENDING_FILES={};
@@ -448,10 +463,36 @@ ${c.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.fin.viol
 
 function viewD(){const st=["Pending agency review","DAR issued (minor)","Commitment letter issued","Showcause issued - awaiting explanation","Showcause - explanation overdue","Closed - DAR issued"];
 const v=vis().filter(r=>(!fStatus||status(r)===fStatus)&&(!fQ||(nm(r)+r.ref+r.agency).toLowerCase().includes(fQ.toLowerCase())));
-return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div class="grid"><div><label>Status</label><select id="fs"><option value="">All</option>${st.map(s=>`<option${s===fStatus?" selected":""}>${s}</option>`).join("")}</select></div><div><label>Search</label><input id="fq" value="${esc(fQ)}" placeholder="Name, ref, agency"></div></div>
+return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div class="grid"><div><label>Status</label><select id="fs"><option value="">All</option>${st.map(s=>`<option${s===fStatus?" selected":""}>${s}</option>`).join("")}</select></div><div><label>Search</label><input id="fq" value="${esc(fQ)}" placeholder="Name, ref, agency"></div></div><div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button type="button" class="s sm" onclick="resetDatFilters()">Reset Filters</button><button type="button" class="s sm" onclick="manualSyncRefresh()">🔄 Sync / Refresh Records</button></div>
 <div class="row"><span class="mut">${v.length} record(s)</span><button class="s" data-act="csv">Export file (CSV)</button></div>
 <div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Agency</th><th>Incident</th><th>Level</th><th>Explanation due</th><th>Status</th><th>Docs</th></tr>
 ${v.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${fd(r.doi)}</td><td>${esc(lvl(r))||"-"}</td><td>${isMC(r)?due(r).toLocaleDateString("en-PH",{dateStyle:"medium"}):"-"}</td><td>${tag(r)}</td><td>${docBtns(r)}</td></tr>`).join("")}</table></div></div>`}
+
+window.render = function(){ render(); };
+
+function resetDatFilters(){
+  fStatus = "";
+  fQ = "";
+  const fs = $("#fs"), fq = $("#fq");
+  if(fs) fs.value = "";
+  if(fq) fq.value = "";
+  render();
+  toast("Filters reset");
+}
+
+function manualSyncRefresh(){
+  toast("Syncing with cloud...");
+  if(window.MhcCloudSync && typeof window.MhcCloudSync.pull === "function"){
+    window.MhcCloudSync.pull().then(() => {
+      render();
+      toast("Records refreshed from cloud! ✓");
+    }).catch(() => {
+      toast("Sync completed.");
+    });
+  } else {
+    render();
+  }
+}
 
 function render(){if(!user)return;const T=(PERM[role]||["A","D","G"]).filter((v,i,a)=>a.indexOf(v)===i);if(!T.includes(tab))tab=T[0];const N={A:"A. Notice of Attention",B:"B. Agency Review",C:"C. Major/Critical",D:"D. Status",E:"Accounts",G:"Dashboard",H:"Document Control"};
 $("#nav").innerHTML=T.map(t=>`<button class="${tab===t?"on":""}" data-tab="${t}">${N[t]}</button>`).join("");
