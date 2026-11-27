@@ -1,14 +1,14 @@
 /**
  * May Harvest Corporation - Disciplinary Action Tracker
- * Hybrid Dual-Cloud Engine: Cloudflare Edge + Supabase Cloud DB (v2.1)
+ * Hybrid Dual-Cloud Realtime Engine: Cloudflare Edge + Supabase Cloud DB (v3.0)
  * 
  * Features:
- * - 24/7 Global Availability (Instant sub-second loading, no cold starts)
- * - Real-time 2-way cloud database synchronization via Supabase PostgreSQL
- * - Infinite loop & echo protection (No repetitive flashing or sync loops)
- * - Non-destructive record conflict resolution & merging
- * - Automatic offline fallback to localStorage
- * - Clean status pill indicator
+ * - Real-time 2-way database synchronization via Supabase PostgreSQL
+ * - Instant WebSocket broadcast channel for sub-second cross-user screen reflection
+ * - Deep content-aware hashing (detects any edits, reviews, decisions, files, and deletes)
+ * - Safe concurrent merge resolution (no data loss, no infinite echo loops)
+ * - Automatic pull on tab switch / window focus & periodic watchdog
+ * - Reliable fallback to localStorage
  */
 
 (function () {
@@ -22,22 +22,92 @@
   const SUPABASE_URL = 'https://svquyjpguhrmhzbgynsw.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_J6udCVSr_aA2_LYp5QcSGQ_hMFu_wMA';
   const SUPABASE_ROOM = 'disciplinary_tracker';
-  const SYNC_INTERVAL_MS = 25000;
-  const DEBOUNCE_MS = 800;
+  const SYNC_INTERVAL_MS = 12000;
+  const DEBOUNCE_MS = 400;
 
   let supabaseClient = null;
   let isSyncing = false;
   let isApplyingCloudData = false;
   let syncTimeout = null;
+  let pendingPush = false;
   let realtimeChannel = null;
   let lastSyncedHash = '';
+
+  // 32-bit FNV-1a fast string hash
+  function fastHash(str) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h.toString(36);
+  }
+
+  // Deep content hash: inspects every record, field, review, decision, log, account, and docControl
+  function getHash(data) {
+    if (!data) return '';
+    try {
+      const records = Array.isArray(data.records) ? data.records : [];
+      const rTokens = records.map(r => {
+        const rev = r.rev;
+        const fin = r.fin;
+        const file = rev && rev.file;
+        return [
+          r.id || '',
+          r.ref || '',
+          r.sur || '',
+          r.first || '',
+          r.mi || '',
+          r.agency || '',
+          r.dept || '',
+          r.doi || '',
+          r.toi || '',
+          r.concern || '',
+          r.at || '',
+          r.createdBy || '',
+          rev ? [
+            rev.cat || '',
+            rev.offense || '',
+            rev.days || '',
+            rev.nth || '',
+            rev.act || '',
+            rev.rep || '',
+            rev.at || '',
+            rev.by || '',
+            file ? (file.name + '_' + (file.data ? file.data.length : 0)) : ''
+          ].join('^') : 'no_rev',
+          fin ? [
+            fin.viol || '',
+            fin.expl || '',
+            fin.edate || '',
+            fin.nth || '',
+            fin.rec || '',
+            fin.rep || '',
+            fin.recd || '',
+            fin.at || '',
+            fin.by || ''
+          ].join('^') : 'no_fin',
+          (r.log && Array.isArray(r.log)) ? r.log.map(l => (l.at || '') + (l.by || '') + (l.ch ? l.ch.length : 0)).join('|') : '0'
+        ].join('~');
+      }).join(';;');
+
+      const accTokens = Object.keys(data.accounts || {}).sort().map(k => k + ':' + data.accounts[k]).join('|');
+      const dcTokens = (data.docControl && data.docControl.DCL) 
+        ? data.docControl.DCL.map(d => (d.at || '') + (d.by || '') + (d.doc || '')).join('|') + '_' + JSON.stringify(data.docControl.DC || {})
+        : '';
+
+      return fastHash(rTokens + '###' + accTokens + '###' + dcTokens);
+    } catch (_) {
+      return '';
+    }
+  }
 
   // Initialize Supabase Client
   function initSupabase() {
     try {
       if (window.supabase && window.supabase.createClient) {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log('[MHC DAT] Supabase Cloud Database Client Initialized.');
+        console.log('[MHC DAT] Supabase Cloud Client Initialized.');
         setupRealtimeSubscription();
       }
     } catch (e) {
@@ -45,12 +115,25 @@
     }
   }
 
-  // Subscribe to real-time database changes
+  // Realtime dual-channel: Postgres changes + instant broadcast channel
   function setupRealtimeSubscription() {
     if (!supabaseClient) return;
     try {
       realtimeChannel = supabaseClient
-        .channel('party_sync_dat_v2')
+        .channel('party_sync_dat_v3')
+        .on(
+          'broadcast',
+          { event: 'dat_update' },
+          (payload) => {
+            if (payload && payload.payload && payload.payload.data) {
+              const incomingHash = payload.payload.hash || getHash(payload.payload.data);
+              if (incomingHash !== lastSyncedHash) {
+                console.log('[MHC DAT] Instant peer broadcast received.');
+                applyIncomingCloudData(payload.payload.data, 'Realtime Broadcast');
+              }
+            }
+          }
+        )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'party_sync' },
@@ -59,29 +142,19 @@
               const cloudData = payload.new.data;
               const incomingHash = getHash(cloudData);
               if (incomingHash !== lastSyncedHash) {
-                console.log('[MHC DAT] Real-time cloud update received from Supabase.');
+                console.log('[MHC DAT] Supabase database change received.');
                 applyIncomingCloudData(cloudData, 'Supabase Realtime');
               }
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[MHC DAT] Real-time live synchronization active.');
+          }
+        });
     } catch (err) {
       console.warn('[MHC DAT] Realtime subscription fallback to polling:', err.message);
-    }
-  }
-
-  function getHash(data) {
-    if (!data) return '';
-    try {
-      return JSON.stringify({
-        r: (data.records || []).length,
-        rlast: (data.records && data.records.length) ? data.records[data.records.length - 1].id : '',
-        a: Object.keys(data.accounts || {}).length,
-        d: (data.docControl && data.docControl.DCL) ? data.docControl.DCL.length : 0
-      });
-    } catch (_) {
-      return '';
     }
   }
 
@@ -89,7 +162,6 @@
   const origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function (key, value) {
     origSetItem(key, value);
-    // Ignore updates during cloud data application to prevent infinite push/pull loops
     if (isApplyingCloudData) return;
     if (key === STORAGE_KEY_RECORDS || key === STORAGE_KEY_ACCOUNTS || key === STORAGE_KEY_DOC) {
       schedulePushSync();
@@ -98,7 +170,7 @@
 
   function schedulePushSync() {
     if (syncTimeout) clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(pushDataToClouds, DEBOUNCE_MS);
+    syncTimeout = setTimeout(() => pushDataToClouds(false), DEBOUNCE_MS);
   }
 
   function getLocalPayload() {
@@ -120,15 +192,16 @@
     };
   }
 
-  async function pushDataToClouds() {
-    if (isSyncing || isApplyingCloudData) return;
-    // Push data whenever payload exists (or logged in)
-    const currentUser = (typeof user !== "undefined" && user) ? user : window.user;
+  async function pushDataToClouds(force) {
+    if (isSyncing || isApplyingCloudData) {
+      if (force) pendingPush = true;
+      return;
+    }
 
     const data = getLocalPayload();
     const currentHash = getHash(data);
-    if (currentHash === lastSyncedHash && lastSyncedHash !== '') {
-      return; // No real data changes
+    if (!force && currentHash === lastSyncedHash && lastSyncedHash !== '') {
+      return;
     }
 
     try {
@@ -146,7 +219,23 @@
             data: data,
             updated_at: data.lastUpdated
           });
-          if (!error) supaOk = true;
+          if (!error) {
+            supaOk = true;
+            // Broadcast immediately to all connected browsers
+            if (realtimeChannel) {
+              realtimeChannel.send({
+                type: 'broadcast',
+                event: 'dat_update',
+                payload: {
+                  hash: currentHash,
+                  data: data,
+                  from: (window.user ? window.user.id : 'unknown')
+                }
+              }).catch(() => {});
+            }
+          } else {
+            console.warn('[MHC DAT] Supabase push error:', error.message);
+          }
         } catch (supaErr) {
           console.warn('[MHC DAT] Supabase push error:', supaErr);
         }
@@ -172,6 +261,10 @@
       setCloudStatus(false, 'Local Mode');
     } finally {
       isSyncing = false;
+      if (pendingPush) {
+        pendingPush = false;
+        setTimeout(() => pushDataToClouds(true), 250);
+      }
     }
   }
 
@@ -293,15 +386,29 @@
   window.MhcCloudSync = {
     push: schedulePushSync,
     pull: pullDataFromClouds,
-    forceSync: pushDataToClouds
+    forceSync: function () {
+      if (syncTimeout) clearTimeout(syncTimeout);
+      return pushDataToClouds(true);
+    }
   };
 
-  // Start sync on page load and periodically
+  // Start sync on page load
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     loadSupabaseScript();
   } else {
     window.addEventListener('DOMContentLoaded', loadSupabaseScript);
   }
 
+  // Watchdog periodic polling
   setInterval(pullDataFromClouds, SYNC_INTERVAL_MS);
+
+  // Immediate pull on tab visibility change or window focus
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pullDataFromClouds();
+    }
+  });
+  window.addEventListener('focus', () => {
+    pullDataFromClouds();
+  });
 })();

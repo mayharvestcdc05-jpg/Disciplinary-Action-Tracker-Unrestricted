@@ -325,30 +325,81 @@ window.getDatData = function() {
   };
 };
 
+function getRecordTimestamp(r) {
+  if (!r) return 0;
+  let ts = 0;
+  if (r.at) { const t = new Date(r.at).getTime(); if (!isNaN(t) && t > ts) ts = t; }
+  if (r.rev && r.rev.at) { const t = new Date(r.rev.at).getTime(); if (!isNaN(t) && t > ts) ts = t; }
+  if (r.fin && r.fin.at) { const t = new Date(r.fin.at).getTime(); if (!isNaN(t) && t > ts) ts = t; }
+  if (Array.isArray(r.log) && r.log.length > 0) {
+    const last = r.log[r.log.length - 1];
+    if (last && last.at) { const t = new Date(last.at).getTime(); if (!isNaN(t) && t > ts) ts = t; }
+  }
+  return ts;
+}
+
 window.applyDatData = function(cloudData) {
   if (!cloudData) return;
   if (Array.isArray(cloudData.records)) {
-    const localMap = new Map();
-    D.forEach(r => { if(r.dept==="PLI")r.dept="Quality"; localMap.set(r.id, r); });
     cloudData.records.forEach(r => {
-      if(r.dept==="PLI") r.dept="Quality";
-      if (!localMap.has(r.id)) {
-        D.push(r);
-        localMap.set(r.id, r);
+      if (MAP[r.agency]) r.agency = MAP[r.agency];
+      if (r.dept === "PLI") r.dept = "Quality";
+    });
+
+    const localMap = new Map();
+    D.forEach(r => {
+      if (MAP[r.agency]) r.agency = MAP[r.agency];
+      if (r.dept === "PLI") r.dept = "Quality";
+      localMap.set(r.id, r);
+    });
+
+    const mergedList = [];
+    const processedIds = new Set();
+
+    cloudData.records.forEach(cloudR => {
+      processedIds.add(cloudR.id);
+      const localR = localMap.get(cloudR.id);
+      if (!localR) {
+        mergedList.push(cloudR);
       } else {
-        const local = localMap.get(r.id);
-        if ((r.fin && !local.fin) || (r.rev && !local.rev)) {
-          Object.assign(local, r);
+        const cloudTs = getRecordTimestamp(cloudR);
+        const localTs = getRecordTimestamp(localR);
+        if (cloudTs >= localTs) {
+          const merged = Object.assign({}, localR, cloudR);
+          if (!cloudR.rev && localR.rev) merged.rev = localR.rev;
+          if (!cloudR.fin && localR.fin) merged.fin = localR.fin;
+          if (!cloudR.rev?.file && localR.rev?.file) {
+            if (merged.rev) merged.rev.file = localR.rev.file;
+          }
+          mergedList.push(merged);
+        } else {
+          const merged = Object.assign({}, cloudR, localR);
+          mergedList.push(merged);
         }
       }
     });
+
+    const cloudUpdatedTs = cloudData.lastUpdated ? new Date(cloudData.lastUpdated).getTime() : 0;
+    localMap.forEach((localR, id) => {
+      if (!processedIds.has(id)) {
+        const localTs = getRecordTimestamp(localR);
+        if (localTs > cloudUpdatedTs || (Date.now() - localTs < 120000)) {
+          mergedList.push(localR);
+        }
+      }
+    });
+
+    D.length = 0;
+    mergedList.forEach(r => D.push(r));
     mem = D;
     try { localStorage.setItem("dat1", JSON.stringify(D)); } catch(e) {}
   }
+
   if (cloudData.accounts && typeof cloudData.accounts === "object") {
     Object.assign(AC, cloudData.accounts);
     try { localStorage.setItem("dat_ac", JSON.stringify(AC)); } catch(e) {}
   }
+
   if (cloudData.docControl) {
     if (cloudData.docControl.DC) Object.assign(DC, cloudData.docControl.DC);
     if (Array.isArray(cloudData.docControl.DCL)) {
@@ -359,6 +410,7 @@ window.applyDatData = function(cloudData) {
     }
     try { localStorage.setItem("dat_dc", JSON.stringify({DC, DCL})); } catch(e) {}
   }
+
   if (user && typeof render === "function") render();
 };
 const fmt=i=>i?new Date(i).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"";
@@ -394,21 +446,47 @@ let PENDING_FILES={};
 function handleFileSelect(inp, id){
   const f=inp.files&&inp.files[0];
   if(!f)return;
-  if(f.size>8*1024*1024){toast("Masyadong malaki ang file (maximum 8MB).");inp.value="";return}
+  if(f.size>5*1024*1024){toast("Masyadong malaki ang file (maximum 5MB).");inp.value="";return}
   const reader=new FileReader();
   reader.onload=function(e){
-    PENDING_FILES[id]={
-      name:f.name,
-      size:f.size,
-      type:f.type||"application/octet-stream",
-      data:e.target.result,
-      uploadedAt:new Date().toISOString()
-    };
-    const prev=$("#file_preview_"+id);
-    if(prev){
-      prev.innerHTML=`<span class="tag ok" style="margin-top:4px;display:inline-block">✓ ${esc(f.name)} (${Math.round(f.size/1024)} KB) naka-attach</span>`;
+    if(f.type&&f.type.startsWith("image/")){
+      const img=new Image();
+      img.onload=function(){
+        const canvas=document.createElement("canvas");
+        let w=img.width, h=img.height;
+        const max=1200;
+        if(w>max||h>max){
+          if(w>h){ h=Math.round((h*max)/w); w=max; }
+          else { w=Math.round((w*max)/h); h=max; }
+        }
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        const dataUrl=canvas.toDataURL("image/jpeg",0.82);
+        PENDING_FILES[id]={
+          name:f.name.replace(/\.[^.]+$/,".jpg"),
+          size:Math.round(dataUrl.length*0.75),
+          type:"image/jpeg",
+          data:dataUrl,
+          uploadedAt:new Date().toISOString()
+        };
+        const prev=$("#file_preview_"+id);
+        if(prev) prev.innerHTML=`<span class="tag ok" style="margin-top:4px;display:inline-block">✓ ${esc(f.name)} (${Math.round(dataUrl.length*0.75/1024)} KB) naka-attach</span>`;
+        toast("Photo attached & optimized: "+f.name);
+      };
+      img.src=e.target.result;
+    } else {
+      PENDING_FILES[id]={
+        name:f.name,
+        size:f.size,
+        type:f.type||"application/octet-stream",
+        data:e.target.result,
+        uploadedAt:new Date().toISOString()
+      };
+      const prev=$("#file_preview_"+id);
+      if(prev) prev.innerHTML=`<span class="tag ok" style="margin-top:4px;display:inline-block">✓ ${esc(f.name)} (${Math.round(f.size/1024)} KB) naka-attach</span>`;
+      toast("File attached: "+f.name);
     }
-    toast("File attached: "+f.name);
   };
   reader.readAsDataURL(f);
 }
