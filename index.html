@@ -546,7 +546,7 @@ return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div cla
 <div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Agency</th><th>Incident</th><th>Level</th><th>Explanation due</th><th>Status</th><th>Docs</th></tr>
 ${v.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${fd(r.doi)}</td><td>${esc(lvl(r))||"-"}</td><td>${isMC(r)?due(r).toLocaleDateString("en-PH",{dateStyle:"medium"}):"-"}</td><td>${tag(r)}</td><td>${docBtns(r)}</td></tr>`).join("")}</table></div></div>`}
 
-window.render = function(){ render(); };
+
 
 function resetDatFilters(){
   fStatus = "";
@@ -572,9 +572,22 @@ function manualSyncRefresh(){
   }
 }
 
-function render(){if(!user)return;const T=(PERM[role]||["A","D","G"]).filter((v,i,a)=>a.indexOf(v)===i);if(!T.includes(tab))tab=T[0];const N={A:"A. Notice of Attention",B:"B. Agency Review",C:"C. Major/Critical",D:"D. Status",E:"Accounts",G:"Dashboard",H:"Document Control"};
-$("#nav").innerHTML=T.map(t=>`<button class="${tab===t?"on":""}" data-tab="${t}">${N[t]}</button>`).join("");
-$("#view").innerHTML={A:viewA,B:viewB,C:viewC,D:viewD,E:viewE,G:viewG,H:viewH}[tab]();fillBy();hdr();updateWho()}
+function render(){
+  try {
+    if(!user)return;
+    const T=(PERM[role]||["A","D","G"]).filter((v,i,a)=>a.indexOf(v)===i);
+    if(!T.includes(tab))tab=T[0];
+    const N={A:"A. Notice of Attention",B:"B. Agency Review",C:"C. Major/Critical",D:"D. Status",E:"Accounts",G:"Dashboard",H:"Document Control"};
+    $("#nav").innerHTML=T.map(t=>`<button class="${tab===t?"on":""}" data-tab="${t}">${N[t]}</button>`).join("");
+    $("#view").innerHTML={A:viewA,B:viewB,C:viewC,D:viewD,E:viewE,G:viewG,H:viewH}[tab]();
+    fillBy();
+    hdr();
+    updateWho();
+  } catch(err) {
+    console.error("[MHC DAT] Render error:", err);
+  }
+}
+window.render = render;
 
 const COLS=["Ref","Surname","First name","MI","Agency","Department","Incident date","Incident time","Concern","Reported by","Reported at","Level","Offense","Showcause days","Reviewed by","Reviewed at","Employee explanation","Recommendation","Decided by","Status","When repeated","Created by (account)","Last edited by (account)","Last edited at"];
 const lastEd=r=>(r.log&&r.log.length)?r.log[r.log.length-1]:{};
