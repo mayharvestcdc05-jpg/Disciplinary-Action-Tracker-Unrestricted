@@ -280,9 +280,29 @@ function tryRestoreSession(){
 async function setPw(id){const v=$("#pw_"+id).value;if(v.length<6){toast("Use at least 6 characters");return}AC[id]=await hp(id,v);saveAc();toast("Password set");render()}
 function fillBy(s){s=s||"#view";document.querySelectorAll(s+' input[name="by"],'+s+' input[name="eby"]').forEach(i=>{if(!i.value)i.value=user.name})}
 function adminOnly(){return true}
-function okTyped(){const c=$("#rstc");if(!c||c.value.trim()!=="RESET"){toast("Type RESET to confirm");return false}return true}
-function delSel(){if(!adminOnly()||!okTyped())return;const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);if(!ids.length){toast("Select records first");return}D=D.filter(r=>!ids.includes(r.id));save();toast(ids.length+" record(s) deleted");render()}
-function delAll(){if(!adminOnly()||!okTyped())return;D=[];save();toast("All records deleted");render()}
+function okTyped(){
+  const c=$("#rstc");
+  if(c && c.value.trim().toUpperCase()==="RESET") return true;
+  return confirm("Sigurado ba kayong nais ituloy ang aksyong ito?");
+}
+function delSel(){
+  const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
+  if(!ids.length){toast("Pumili muna ng records gamit ang checkbox sa kaliwa");return}
+  if(!confirm("Sigurado ba kayong nais burahin ang "+ids.length+" napiling record(s)?"))return;
+  D=D.filter(r=>!ids.includes(r.id));
+  save();
+  toast(ids.length+" record(s) deleted");
+  render();
+}
+function delAll(){
+  if(!confirm("⚠️ MAHALAGA: Sigurado ba kayong nais burahin ang LAHAT ng records sa system para sa opisyal na paggamit?"))return;
+  D=[];
+  save();
+  const c=$("#rstc");
+  if(c) c.value="";
+  toast("Lahat ng records ay matagumpay na nabura ✓");
+  render();
+}
 function rstPw(id){if(!adminOnly())return;delete AC[id];saveAc();toast("Password reset");render()}
 function rstAllPw(){if(!adminOnly()||!okTyped())return;ACC.forEach(a=>{if(a.id!=="adminhead")delete AC[a.id]});saveAc();toast("Passwords reset");render()}
 let dAg="";
@@ -383,7 +403,7 @@ window.applyDatData = function(cloudData) {
     localMap.forEach((localR, id) => {
       if (!processedIds.has(id)) {
         const localTs = getRecordTimestamp(localR);
-        if (localTs > cloudUpdatedTs || (Date.now() - localTs < 120000)) {
+        if (localTs > cloudUpdatedTs) {
           mergedList.push(localR);
         }
       }
@@ -541,7 +561,7 @@ ${c.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.fin.viol
 
 function viewD(){const st=["Pending agency review","DAR issued (minor)","Commitment letter issued","Showcause issued - awaiting explanation","Showcause - explanation overdue","Closed - DAR issued"];
 const v=vis().filter(r=>(!fStatus||status(r)===fStatus)&&(!fQ||(nm(r)+r.ref+r.agency).toLowerCase().includes(fQ.toLowerCase())));
-return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div class="grid"><div><label>Status</label><select id="fs"><option value="">All</option>${st.map(s=>`<option${s===fStatus?" selected":""}>${s}</option>`).join("")}</select></div><div><label>Search</label><input id="fq" value="${esc(fQ)}" placeholder="Name, ref, agency"></div></div><div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button type="button" class="s sm" onclick="resetDatFilters()">Reset Filters</button><button type="button" class="s sm" onclick="manualSyncRefresh()">🔄 Sync / Refresh Records</button></div>
+return`<div class="card"><h2>D. Status of Notice of Attention / DAR</h2><div class="grid"><div><label>Status</label><select id="fs"><option value="">All</option>${st.map(s=>`<option${s===fStatus?" selected":""}>${s}</option>`).join("")}</select></div><div><label>Search</label><input id="fq" value="${esc(fQ)}" placeholder="Name, ref, agency"></div></div><div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button type="button" class="s sm" onclick="resetDatFilters()">Reset Filters</button><button type="button" class="s sm" onclick="manualSyncRefresh()">🔄 Sync / Refresh Records</button>${role==="admin"?` <button type="button" class="s sm" onclick="delAll()" style="color:var(--bad);border-color:var(--bad)">🗑️ Reset All Records</button>`:""}</div>
 <div class="row"><span class="mut">${v.length} record(s)</span><button class="s" data-act="csv">Export file (CSV)</button></div>
 <div class="tw"><table><tr><th>Ref</th><th>Employee</th><th>Agency</th><th>Incident</th><th>Level</th><th>Explanation due</th><th>Status</th><th>Docs</th></tr>
 ${v.map(r=>`<tr><td>${esc(r.ref)}</td><td>${esc(nm(r))}</td><td>${esc(r.agency)}</td><td>${fd(r.doi)}</td><td>${esc(lvl(r))||"-"}</td><td>${isMC(r)?due(r).toLocaleDateString("en-PH",{dateStyle:"medium"}):"-"}</td><td>${tag(r)}</td><td>${docBtns(r)}</td></tr>`).join("")}</table></div></div>`}
